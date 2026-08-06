@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit tests
+        run: npm test
+
+      # Catches the trap where package.json gains "type": "module" and
+      # electron-vite silently emits an ESM preload, which loads without error
+      # but whose contextBridge globals never appear.
+      - name: Build
+        run: npm run build
+
+      - name: Assert preloads are CommonJS
+        run: |
+          for f in out/preload/*.cjs; do
+            if grep -qE '^\s*(import|export)\s' "$f"; then
+              echo "::error file=$f::preload contains ESM syntax; sandboxed preloads must be CommonJS"
+              exit 1
+            fi
+          done
+          echo "preloads are CJS: $(ls out/preload/)"
+
+      - name: Assert icons are in sync with the generator
+        run: |
+          npm run icons
+          if ! git diff --quiet -- build/icons; then
+            echo "::error::build/icons differs from scripts/generate-icons.mjs output — commit the regenerated icons"
+            git diff --stat -- build/icons
+            exit 1
+          fi

@@ -9,6 +9,20 @@ Built on Electron 43. Linux-first (developed and verified on Ubuntu 26.04 / Wayl
 > including voice/video calls, screen share and voice-message recording. Auto-update and tab
 > reordering are the notable gaps.
 
+## Download
+
+Grab a build from the [Releases page](../../releases) — no toolchain needed.
+
+```bash
+sudo apt install ./whatsapp-multi_<version>_amd64.deb
+```
+
+**Prefer the `.deb`.** Its post-install script configures `chrome-sandbox` and installs an
+AppArmor profile, so the Chromium sandbox stays **on**, and it registers the desktop entry and
+icons. The AppImage needs no install but runs **unsandboxed** on Ubuntu 24.04+ — see
+[Troubleshooting](#troubleshooting) for why. This app renders a third-party site, so that
+difference matters.
+
 ---
 
 ## Why this exists
@@ -59,8 +73,15 @@ Then press **+** in the tab bar and scan the QR code with your phone.
 npm run build        # typecheck + bundle to out/
 npm start            # run the built app
 npm run typecheck    # main/preload and renderer, separately
+npm test             # unit tests (node:test)
 npm run icons        # regenerate build/icons from the generator script
+npm run dist         # build .deb + AppImage into dist/
 ```
+
+Tests bundle the modules under test with esbuild, aliasing `electron` to a stub — they are
+TypeScript and import Electron, neither of which `node --test` consumes directly. Coverage is
+the logic worth pinning: keyword matching (including whole-word false positives and non-Latin
+boundaries), unread counting, download filename safety, and autostart entry handling.
 
 ### Getting the app icon to show up
 
@@ -352,6 +373,27 @@ its own parameters, and must avoid syntax that makes the bundler emit helpers (w
 it uses `Object.defineProperty` instead of a static class field). Install status is reported
 to the main process and logged loudly on failure, so a future Electron change surfaces as
 `[notify] SHIM NOT INSTALLED` rather than silently losing click routing.
+
+---
+
+## Releasing
+
+CI runs typecheck, tests and a build on every push and pull request. It also asserts two
+things that fail silently otherwise: that the built preloads contain no ESM syntax, and that
+`build/icons` still matches its generator.
+
+To publish:
+
+```bash
+npm version minor -m "release %s"   # bumps package.json and tags
+git push --follow-tags
+```
+
+The tag triggers `.github/workflows/release.yml`, which re-runs the same gates, builds the
+`.deb` and AppImage, and attaches them to a GitHub Release along with `latest-linux.yml` (the
+update manifest, shipped now so auto-update can be added later without re-cutting releases).
+
+`workflow_dispatch` builds artifacts without tagging, to exercise the pipeline.
 
 ---
 

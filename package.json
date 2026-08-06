@@ -14,6 +14,7 @@
     "typecheck:node": "tsc --noEmit -p tsconfig.node.json",
     "typecheck:web": "tsc --noEmit -p tsconfig.web.json",
     "typecheck": "npm run typecheck:node && npm run typecheck:web",
+    "test": "node test/build.mjs && node --test test/*.test.mjs",
     "icons": "node scripts/generate-icons.mjs",
     "desktop:install": "node scripts/install-desktop-entry.mjs",
     "desktop:uninstall": "node scripts/install-desktop-entry.mjs --remove",
@@ -32,6 +33,7 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "typescript": "^5.9.3",
-    "vite": "^7.2.6"
+    "vite": "^7.2.6",
+    "esbuild": "^0.25.0"
   }
 }

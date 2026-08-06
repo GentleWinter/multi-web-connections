@@ -1,0 +1,93 @@
+name: Release
+
+# Tag a commit to publish:
+#   npm version minor -m "release %s"   # bumps package.json and creates the tag
+#   git push --follow-tags
+on:
+  push:
+    tags: ['v*']
+  # Produce artifacts without tagging, to check the pipeline end to end.
+  workflow_dispatch:
+
+permissions:
+  contents: write # required to create the release and upload assets
+
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # A tagged build should not ship something that would fail a pull request.
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Build .deb and AppImage
+        run: npx electron-builder --linux --publish never
+
+      - name: List artifacts
+        run: ls -la dist/*.deb dist/*.AppImage dist/latest-linux.yml
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-artifacts
+          path: |
+            dist/*.deb
+            dist/*.AppImage
+            dist/latest-linux.yml
+          if-no-files-found: error
+
+      - name: Publish GitHub release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          # Quoted heredoc: backticks and $ stay literal, so the markdown below
+          # is not run as shell.
+          cat > notes.md <<'NOTES'
+          ## Install
+
+          ### Recommended — `.deb`
+
+          ```bash
+          sudo apt install ./whatsapp-multi_VERSION_amd64.deb
+          ```
+
+          The `.deb` is the supported build. Its post-install script configures
+          `chrome-sandbox` and installs an AppArmor profile, so the Chromium
+          sandbox stays **on**, and it registers the desktop entry and icons.
+
+          ### AppImage — no install
+
+          ```bash
+          chmod +x whatsapp-multi-*.AppImage
+          ./whatsapp-multi-*.AppImage
+          ```
+
+          Note it runs **without the Chromium sandbox** on Ubuntu 24.04+:
+          `apparmor_restrict_unprivileged_userns=1` blocks user namespaces, and a
+          FUSE-mounted `chrome-sandbox` can never be setuid. This app renders a
+          third-party site, so prefer the `.deb`.
+
+          ---
+
+          Each running account uses one of WhatsApp's **4 linked-device slots**
+          for that phone number, so multiple accounts means multiple numbers.
+          NOTES
+
+          sed -i "s/VERSION/${TAG#v}/g" notes.md
+          gh release create "$TAG" \
+            --title "WhatsApp Multi ${TAG#v}" \
+            --notes-file notes.md \
+            dist/*.deb dist/*.AppImage dist/latest-linux.yml
