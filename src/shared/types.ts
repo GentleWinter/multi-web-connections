@@ -1,8 +1,17 @@
+import type { UnreadStrategy } from './services'
+
 export interface AccountRecord {
   id: string
   name: string
   color: string
   createdAt: string
+  /** Which web app this account hosts. Absent in pre-multi-service configs. */
+  serviceId: string
+  /** Resolved start URL — a service default, or the user's own for 'custom'. */
+  url: string
+  /** Navigation allowlist; see hostMatches() in shared/services.ts. */
+  hosts: string[]
+  unread: UnreadStrategy
 }
 
 export interface AppConfig {
@@ -62,7 +71,7 @@ export interface ShellState {
   alerts: AlertSettings
 }
 
-export const CURRENT_SCHEMA_VERSION = 1
+export const CURRENT_SCHEMA_VERSION = 2
 
 export const WHATSAPP_URL = 'https://web.whatsapp.com/'
 export const WHATSAPP_HOST = 'web.whatsapp.com'

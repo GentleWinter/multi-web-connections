@@ -2,7 +2,7 @@ import { mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { WebContentsView, app, session, type BrowserWindow } from 'electron'
 import { attachContextMenu } from './context-menu'
-import { TAB_BAR_HEIGHT, WHATSAPP_URL, type AccountRecord } from '../shared/types'
+import { TAB_BAR_HEIGHT, type AccountRecord } from '../shared/types'
 import { pinNavigation } from './navigation'
 import { accountSessionDir } from './paths'
 import { hardenSession } from './session-harden'
@@ -101,7 +101,7 @@ export class AccountViewManager {
     // fromPath() rather than fromPartition('persist:…') so the directory name is
     // exactly the account id and deletion is a plain fs.rm.
     const ses = session.fromPath(dir)
-    hardenSession(ses)
+    hardenSession(ses, account.hosts)
 
     const view = new WebContentsView({
       webPreferences: {
@@ -121,7 +121,7 @@ export class AccountViewManager {
     // WebContentsView defaults to opaque white, which flashes on every switch.
     view.setBackgroundColor('#111b21')
 
-    pinNavigation(view.webContents)
+    pinNavigation(view.webContents, account.hosts)
     // Embedded content gets no context menu from Electron, so right-click
     // copy/paste and spellcheck suggestions have to be built by hand.
     attachContextMenu(view.webContents, !app.isPackaged)
@@ -145,6 +145,8 @@ export class AccountViewManager {
     // which account it belongs to until we tell it.
     view.webContents.on('dom-ready', () => {
       this.pushLabel(account.id)
+      // How to read an unread count is the one genuinely per-service thing.
+      view.webContents.send('wa:set-unread-strategy', account.unread)
       this.onViewReady?.(account.id)
     })
 
@@ -152,7 +154,7 @@ export class AccountViewManager {
     view.setVisible(false)
     this.layoutOne(view)
 
-    void view.webContents.loadURL(WHATSAPP_URL)
+    void view.webContents.loadURL(account.url)
     return view
   }
 
@@ -168,7 +170,7 @@ export class AccountViewManager {
     this.layout()
   }
 
-  /** Reload an account's page — the usual fix when WhatsApp Web wedges. */
+  /** Reload an account's page — the usual fix when a web app wedges. */
   reload(id: string): void {
     const view = this.views.get(id)
     if (view && !view.webContents.isDestroyed()) view.webContents.reload()

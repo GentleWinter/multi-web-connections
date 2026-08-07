@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import { startUnreadPolling } from './unread-reader'
+import { setUnreadStrategy, startUnreadPolling } from './unread-reader'
 
 /**
  * Injected into web.whatsapp.com. Runs next to third-party code, so the exposed
@@ -279,6 +279,13 @@ if (isTopFrame) {
       })
     } catch {
       /* ignore */
+    }
+  })
+
+  ipcRenderer.on('wa:set-unread-strategy', (_event, next: unknown) => {
+    const value = String(next)
+    if (value === 'whatsapp-idb' || value === 'title-count' || value === 'none') {
+      setUnreadStrategy(value)
     }
   })
 

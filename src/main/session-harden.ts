@@ -1,5 +1,5 @@
 import { desktopCapturer, type Session } from 'electron'
-import { WHATSAPP_HOST } from '../shared/types'
+import { hostMatches } from '../shared/services'
 import { attachDownloadHandler } from './downloads'
 import { cleanUserAgent } from './user-agent'
 
@@ -19,17 +19,20 @@ const ALLOWED_PERMISSIONS = new Set([
   'pointerLock',
 ])
 
-function isWhatsAppOrigin(origin: string | undefined): boolean {
+function isAllowedOrigin(origin: string | undefined, hosts: string[]): boolean {
   if (!origin) return false
   try {
     const u = new URL(origin)
-    return u.protocol === 'https:' && u.hostname === WHATSAPP_HOST
+    return u.protocol === 'https:' && hostMatches(u.hostname, hosts)
   } catch {
     return false
   }
 }
 
-export function hardenSession(ses: Session): void {
+export function hardenSession(ses: Session, hosts: string[]): void {
+  // Permissions are granted to the service itself, never to an identity
+  // provider we merely allow navigation through.
+  const permissionHosts = hosts
   const ua = cleanUserAgent(ses.getUserAgent())
   ses.setUserAgent(ua)
 
@@ -42,11 +45,11 @@ export function hardenSession(ses: Session): void {
 
   ses.setPermissionRequestHandler((_wc, permission, callback, details) => {
     const origin = details?.requestingUrl
-    callback(ALLOWED_PERMISSIONS.has(permission) && isWhatsAppOrigin(origin))
+    callback(ALLOWED_PERMISSIONS.has(permission) && isAllowedOrigin(origin, permissionHosts))
   })
 
   ses.setPermissionCheckHandler((_wc, permission, requestingOrigin) => {
-    return ALLOWED_PERMISSIONS.has(permission) && isWhatsAppOrigin(requestingOrigin)
+    return ALLOWED_PERMISSIONS.has(permission) && isAllowedOrigin(requestingOrigin, permissionHosts)
   })
 
   configureSpellcheck(ses)

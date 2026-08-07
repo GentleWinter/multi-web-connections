@@ -1,4 +1,5 @@
 import type { UnreadReport } from '../shared/types'
+import type { UnreadStrategy } from '../shared/services'
 
 /**
  * Read unread counts straight out of WhatsApp's IndexedDB.
@@ -18,6 +19,45 @@ const STORE = 'chat'
 const POLL_MS = 6000
 
 let db: IDBDatabase | null = null
+let strategy: UnreadStrategy = 'none'
+let onStrategyChange: (() => void) | null = null
+
+/** Set by main once it knows which service this view is hosting. */
+export function setUnreadStrategy(next: UnreadStrategy): void {
+  if (next === strategy) return
+  strategy = next
+  onStrategyChange?.()
+}
+
+/**
+ * Leading "(3)" in the document title — what Discord, Slack, Messenger,
+ * Telegram and most web chat apps use.
+ *
+ * Deliberately anchored. A loose /(\d+)/ over the whole title is how the
+ * closest prior art ends up reading a group called "2024 Planning" as 2024
+ * unread messages.
+ */
+const TITLE_COUNT = /^\s*\((\d+)\)/
+/** A leading dot/asterisk means "activity, no count" in several of these apps. */
+const TITLE_MARKER = /^\s*[•*]/
+
+export function readTitleCount(): UnreadReport {
+  const title = typeof document === 'undefined' ? '' : document.title || ''
+  const m = TITLE_COUNT.exec(title)
+  if (m) {
+    const n = Number(m[1])
+    return {
+      status: 'ok',
+      direct: Number.isFinite(n) && n > 0 ? Math.min(n, 99999) : 0,
+      muted: 0,
+      markedUnread: 0,
+    }
+  }
+  if (TITLE_MARKER.test(title)) {
+    return { status: 'ok', direct: 0, muted: 0, markedUnread: 1 }
+  }
+  return { status: 'ok', direct: 0, muted: 0, markedUnread: 0 }
+}
 
 interface ChatRow {
   unreadCount?: unknown
@@ -113,6 +153,12 @@ export function computeCounts(rows: ChatRow[]): Omit<UnreadReport, 'status'> {
 }
 
 async function sample(): Promise<UnreadReport> {
+  if (strategy === 'none') {
+    return { status: 'db-absent', direct: 0, muted: 0, markedUnread: 0 }
+  }
+  if (strategy === 'title-count') return readTitleCount()
+
+  // 'whatsapp-idb' below.
   if (!db) {
     if (!(await databaseExists())) {
       return { status: 'db-absent', direct: 0, muted: 0, markedUnread: 0 }
@@ -149,6 +195,23 @@ export function startUnreadPolling(report: (r: UnreadReport) => void): void {
       report(result)
     }
   }
+
+  // Re-read immediately when the strategy arrives, rather than waiting a tick.
+  onStrategyChange = () => void tick()
+
+  // A title-derived count should update as soon as the title does; polling
+  // alone would lag by up to POLL_MS.
+  try {
+    const titleEl = document.querySelector('title')
+    if (titleEl) {
+      new MutationObserver(() => {
+        if (strategy === 'title-count') void tick()
+      }).observe(titleEl, { childList: true, characterData: true, subtree: true })
+    }
+  } catch {
+    /* observer is an optimisation, not a requirement */
+  }
+
   void tick()
   setInterval(() => void tick(), POLL_MS)
 }

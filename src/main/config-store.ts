@@ -10,6 +10,7 @@ import {
   type AppConfig,
 } from '../shared/types'
 import { sanitizeAlerts } from './alerts'
+import { SERVICES, serviceById, type ServiceDefinition } from '../shared/services'
 import { configPath } from './paths'
 
 /**
@@ -43,13 +44,16 @@ export function getLoadStatus(): LoadStatus | null {
   return loadStatus
 }
 
+/** Set by migrate() when the on-disk shape needed upgrading. */
+let migrated = false
+
 function migrate(raw: unknown): AppConfig {
   if (!raw || typeof raw !== 'object') return { ...EMPTY, accounts: [] }
   const c = raw as Partial<AppConfig>
   // Only one schema version so far; the switch is here so v2 has an obvious home.
   return {
     schemaVersion: CURRENT_SCHEMA_VERSION,
-    accounts: Array.isArray(c.accounts) ? c.accounts.filter(isAccount) : [],
+    accounts: Array.isArray(c.accounts) ? c.accounts.filter(isAccount).map(normalizeAccount) : [],
     activeAccountId: typeof c.activeAccountId === 'string' ? c.activeAccountId : null,
     // Absent in configs written before priority alerts existed.
     alerts: sanitizeAlerts(c.alerts),
@@ -60,6 +64,28 @@ function isAccount(a: unknown): a is AccountRecord {
   if (!a || typeof a !== 'object') return false
   const r = a as Partial<AccountRecord>
   return typeof r.id === 'string' && typeof r.name === 'string' && typeof r.color === 'string'
+}
+
+/**
+ * Fill in the service fields added when the app stopped being WhatsApp-only.
+ * Configs written before that have logged-in sessions on disk, so they must
+ * keep working untouched — an account with no serviceId is a WhatsApp account.
+ */
+function normalizeAccount(a: AccountRecord): AccountRecord {
+  if (!a.serviceId || !a.url || !Array.isArray(a.hosts) || !a.unread) migrated = true
+  const whatsapp = SERVICES[0]
+  const service = (a.serviceId && serviceById(a.serviceId)) || whatsapp
+  const isCustom = a.serviceId === 'custom'
+  return {
+    ...a,
+    serviceId: a.serviceId || whatsapp.id,
+    url: typeof a.url === 'string' && a.url ? a.url : service.url,
+    hosts:
+      Array.isArray(a.hosts) && a.hosts.length > 0
+        ? a.hosts.filter((h) => typeof h === 'string')
+        : service.hosts,
+    unread: a.unread || (isCustom ? 'title-count' : service.unread),
+  }
 }
 
 export function loadConfig(): AppConfig {
@@ -74,6 +100,7 @@ export function loadConfig(): AppConfig {
   }
 
   try {
+    migrated = false
     config = migrate(JSON.parse(raw))
     loadStatus = 'loaded'
   } catch (err) {
@@ -87,6 +114,12 @@ export function loadConfig(): AppConfig {
   // Drop a dangling active id (e.g. config hand-edited, or account dir removed).
   if (config.activeAccountId && !config.accounts.some((a) => a.id === config.activeAccountId)) {
     config.activeAccountId = config.accounts[0]?.id ?? null
+  }
+  // Persist an upgraded shape once, rather than re-deriving it on every launch
+  // and leaving the file looking half-written to anyone who inspects it.
+  if (migrated) {
+    console.log(`[config] migrated ${config.accounts.length} account(s) to the service schema`)
+    saveConfig()
   }
   return config
 }
@@ -117,15 +150,28 @@ export function flushConfig(): void {
   renameSync(tmp, target)
 }
 
-export function addAccount(name: string): AccountRecord {
+export interface NewAccountSpec {
+  name?: string
+  serviceId: string
+  url: string
+  hosts: string[]
+  unread: ServiceDefinition['unread']
+  color?: string
+}
+
+export function addAccount(spec: NewAccountSpec): AccountRecord {
   const account: AccountRecord = {
     // Lowercase uuid: partition-name escaping bit other projects here, and a
     // lowercase id keeps the on-disk name identical to the id even if we ever
     // fall back to persist: partitions.
     id: randomUUID().toLowerCase(),
-    name: name.trim() || `Account ${config.accounts.length + 1}`,
-    color: ACCOUNT_COLORS[config.accounts.length % ACCOUNT_COLORS.length],
+    name: (spec.name ?? '').trim() || `Account ${config.accounts.length + 1}`,
+    color: spec.color || ACCOUNT_COLORS[config.accounts.length % ACCOUNT_COLORS.length],
     createdAt: new Date().toISOString(),
+    serviceId: spec.serviceId,
+    url: spec.url,
+    hosts: spec.hosts,
+    unread: spec.unread,
   }
   config.accounts.push(account)
   if (!config.activeAccountId) config.activeAccountId = account.id

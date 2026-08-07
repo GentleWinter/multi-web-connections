@@ -1,9 +1,5 @@
 import { shell, type WebContents } from 'electron'
-import { WHATSAPP_HOST } from '../shared/types'
-
-/** Hosts an account view is allowed to navigate to in-place. Everything else is
- *  handed to the OS browser. */
-const PINNED_HOSTS = new Set([WHATSAPP_HOST])
+import { AUTH_HOSTS, hostMatches } from '../shared/services'
 
 const EXTERNAL_PROTOCOLS = new Set(['https:', 'http:', 'mailto:', 'tel:'])
 
@@ -28,21 +24,27 @@ export function openExternal(url: string): void {
 }
 
 /**
- * Keep an account view pinned to web.whatsapp.com. Note will-navigate does not
- * fire for SPA history pushes, which is fine — WhatsApp is an SPA and we only
+ * Keep an account view pinned to its own service. Note will-navigate does not
+ * fire for SPA history pushes, which is fine — these are all SPAs and we only
  * care about real navigations.
+ *
+ * AUTH_HOSTS is always allowed on top of the service's own list: sign-in flows
+ * routinely bounce through Google/Apple/Microsoft, and pinning those out breaks
+ * login in a way that looks like the app is simply ignoring the button.
  */
-export function pinNavigation(wc: WebContents): void {
+export function pinNavigation(wc: WebContents, hosts: string[]): void {
+  const allowed = [...hosts, ...AUTH_HOSTS]
+
   wc.on('will-navigate', (event, url) => {
     const host = hostOf(url)
-    if (host && PINNED_HOSTS.has(host)) return
+    if (host && hostMatches(host, allowed)) return
     event.preventDefault()
     openExternal(url)
   })
 
   wc.on('will-redirect', (event, url) => {
     const host = hostOf(url)
-    if (host && PINNED_HOSTS.has(host)) return
+    if (host && hostMatches(host, allowed)) return
     event.preventDefault()
   })
 

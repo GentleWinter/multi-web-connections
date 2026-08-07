@@ -2,6 +2,7 @@ import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { app, BrowserWindow, nativeImage } from 'electron'
 import { TAB_BAR_HEIGHT } from '../shared/types'
+import { SERVICES } from '../shared/services'
 import { AccountViewManager } from './account-view'
 import { clearLauncherBadge } from './badge'
 import { iconPath } from './icons'
@@ -209,7 +210,15 @@ function onReady(): void {
 
   // First run: give the user something to scan a QR code into.
   if (config.accounts.length === 0) {
-    const first = addAccount('Account 1')
+    const whatsapp = SERVICES[0]
+    const first = addAccount({
+      name: whatsapp.name,
+      serviceId: whatsapp.id,
+      url: whatsapp.url,
+      hosts: whatsapp.hosts,
+      unread: whatsapp.unread,
+      color: whatsapp.color,
+    })
     setActiveAccount(first.id)
   }
 

@@ -9,8 +9,11 @@ import type { ShellState } from '../shared/types'
 const api = {
   getState: (): Promise<ShellState | null> => ipcRenderer.invoke('shell:getState'),
 
-  addAccount: (name: string): Promise<ShellState | null> =>
-    ipcRenderer.invoke('shell:addAccount', name),
+  addAccount: (spec: {
+    serviceId: string
+    name?: string
+    url?: string
+  }): Promise<ShellState | null> => ipcRenderer.invoke('shell:addAccount', spec),
 
   activateAccount: (id: string): Promise<ShellState | null> =>
     ipcRenderer.invoke('shell:activateAccount', id),
@@ -37,6 +40,14 @@ const api = {
 
   /** Restores the account view that the alerts panel was covering. */
   closeAlerts: (): Promise<ShellState | null> => ipcRenderer.invoke('shell:closeAlerts'),
+
+  onOpenServicePicker: (cb: () => void): (() => void) => {
+    const handler = (): void => cb()
+    ipcRenderer.on('shell:openServicePicker', handler)
+    return () => {
+      ipcRenderer.removeListener('shell:openServicePicker', handler)
+    }
+  },
 
   onOpenAlerts: (cb: () => void): (() => void) => {
     const handler = (): void => cb()

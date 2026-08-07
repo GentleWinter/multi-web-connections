@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { CUSTOM_SERVICE_ID, SERVICES } from '../../shared/services'
 import {
   DEFAULT_ALERTS,
   EMPTY_UNREAD,
@@ -60,6 +61,87 @@ function RenameField({
       }}
       onFocus={(e) => e.currentTarget.select()}
     />
+  )
+}
+
+/** Choose which web app a new account hosts. */
+function ServicePicker({
+  onPick,
+  onClose,
+}: {
+  onPick: (serviceId: string, url?: string) => void
+  onClose: () => void
+}): React.JSX.Element {
+  const [customUrl, setCustomUrl] = useState('')
+  const [showCustom, setShowCustom] = useState(false)
+
+  const customValid = /^https?:\/\/.+\..+/i.test(customUrl.trim())
+
+  return (
+    <main className="panel">
+      <div className="panel-inner">
+        <h1>Add an account</h1>
+        <p className="panel-sub">
+          Each account gets its own isolated session, so several accounts of the same service
+          can be signed in at once.
+        </p>
+
+        <div className="service-grid">
+          {SERVICES.filter((s) => s.id !== CUSTOM_SERVICE_ID).map((s) => (
+            <button key={s.id} type="button" className="service" onClick={() => onPick(s.id)}>
+              <span className="service-dot" style={{ background: s.color }} />
+              <span className="service-name">{s.name}</span>
+              {s.note && <span className="service-note">{s.note}</span>}
+            </button>
+          ))}
+
+          <button
+            type="button"
+            className={`service${showCustom ? ' selected' : ''}`}
+            onClick={() => setShowCustom((v) => !v)}
+          >
+            <span className="service-dot" style={{ background: '#8696A0' }} />
+            <span className="service-name">Custom URL…</span>
+            <span className="service-note">Any web app</span>
+          </button>
+        </div>
+
+        {showCustom && (
+          <label className="field">
+            <span className="field-label">
+              Address — pinned to that domain and its subdomains
+            </span>
+            <input
+              className="text-input"
+              autoFocus
+              placeholder="https://chat.example.com"
+              value={customUrl}
+              spellCheck={false}
+              onChange={(e) => setCustomUrl(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && customValid) onPick(CUSTOM_SERVICE_ID, customUrl.trim())
+              }}
+            />
+          </label>
+        )}
+
+        <div className="panel-actions">
+          <button type="button" className="btn" onClick={onClose}>
+            Cancel
+          </button>
+          {showCustom && (
+            <button
+              type="button"
+              className="btn primary"
+              disabled={!customValid}
+              onClick={() => onPick(CUSTOM_SERVICE_ID, customUrl.trim())}
+            >
+              Add
+            </button>
+          )}
+        </div>
+      </div>
+    </main>
   )
 }
 
@@ -156,6 +238,7 @@ export default function App(): React.JSX.Element {
   })
   const [renamingId, setRenamingId] = useState<string | null>(null)
   const [alertsOpen, setAlertsOpen] = useState(false)
+  const [pickerOpen, setPickerOpen] = useState(false)
 
   const apply = (result: ShellState | null): void => {
     if (result) setState(result)
@@ -173,6 +256,7 @@ export default function App(): React.JSX.Element {
     const offState = window.shell.onState(setState)
     const offRename = window.shell.onBeginRename((id) => setRenamingId(id))
     const offAlerts = window.shell.onOpenAlerts(() => setAlertsOpen(true))
+    const offPicker = window.shell.onOpenServicePicker(() => setPickerOpen(true))
     const offRemove = window.shell.onConfirmRemove((id) => {
       const account = state.accounts.find((a) => a.id === id)
       if (account) confirmRemove(account)
@@ -182,13 +266,17 @@ export default function App(): React.JSX.Element {
       offRename()
       offRemove()
       offAlerts()
+      offPicker()
     }
     // state.accounts is read inside onConfirmRemove, so the listener is rebound
     // when the account list changes.
   }, [state.accounts])
 
-  const onAdd = (): void => {
-    void window.shell.addAccount(`Account ${state.accounts.length + 1}`).then(apply)
+  const onAdd = (): void => setPickerOpen(true)
+
+  const addService = (serviceId: string, url?: string): void => {
+    setPickerOpen(false)
+    void window.shell.addAccount({ serviceId, url }).then(apply)
   }
 
   const finishRename = (account: AccountRecord, name: string | null): void => {
@@ -245,6 +333,16 @@ export default function App(): React.JSX.Element {
         </button>
       </nav>
 
+      {pickerOpen && (
+        <ServicePicker
+          onPick={addService}
+          onClose={() => {
+            setPickerOpen(false)
+            void window.shell.closeAlerts().then(apply)
+          }}
+        />
+      )}
+
       {alertsOpen && (
         <AlertsPanel
           alerts={state.alerts}
@@ -256,11 +354,11 @@ export default function App(): React.JSX.Element {
         />
       )}
 
-      {!alertsOpen && state.accounts.length === 0 && (
+      {!alertsOpen && !pickerOpen && state.accounts.length === 0 && (
         <main className="empty">
           <div>
             <h1>No accounts yet</h1>
-            <p>Press + to add one, then scan the QR code with WhatsApp on your phone.</p>
+            <p>Press + to add one — WhatsApp, Discord, Slack, Messenger, or any URL.</p>
           </div>
         </main>
       )}

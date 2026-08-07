@@ -1,13 +1,44 @@
 # WhatsApp Multi
 
-A small desktop app that runs several fully-isolated WhatsApp Web accounts in one window,
-with native notifications and unread badges.
+A small desktop app that runs several fully-isolated web messengers in one window — multiple
+accounts of the same service included — with native notifications and unread badges.
 
 Built on Electron 43. Linux-first (developed and verified on Ubuntu 26.04 / Wayland / GNOME 50).
 
 > **Status: usable.** Everything in the [feature table](#feature-status) is verified working,
 > including voice/video calls, screen share and voice-message recording. Auto-update and tab
 > reordering are the notable gaps.
+>
+> The app is still named for WhatsApp — its config directory, app id and desktop entry all
+> use `WhatsAppMulti`. Renaming would orphan existing sessions, so that is left alone
+> deliberately.
+
+## Services
+
+| | Unread counts |
+|---|---|
+| WhatsApp | Exact, read from IndexedDB |
+| Discord, Slack, Messenger, Telegram, Google Messages, Reddit Chat, Microsoft Teams, Element | From the `(3)` prefix in the page title |
+| **Custom URL** | Title prefix, if the app uses one |
+
+Every account is a separate session, so several accounts of the *same* service can be signed
+in at once — that was the original point and it generalises unchanged.
+
+Adding a service costs one entry in [`src/shared/services.ts`](src/shared/services.ts): a URL,
+the hosts its view may navigate to, and which unread strategy to use. Everything else —
+session isolation, the notification shim, priority alerts, the User-Agent strip, permissions,
+downloads, spellcheck, the context menu — is service-agnostic already.
+
+**Navigation is pinned** to each service's own domains, plus a small allowlist of identity
+providers (Google, Apple, Microsoft, Okta, Auth0). Without those, sign-in flows that bounce
+through an IdP would be sent to the system browser and the login would appear to do nothing.
+Anything else opens externally.
+
+> Verified that all of the above reach their real sign-in page in this shell, with no
+> "unsupported browser" wall. The **title-based unread counts are not verified against
+> signed-in accounts** — only WhatsApp's IndexedDB reader has been checked against live data.
+
+---
 
 ## Download
 
@@ -306,6 +337,8 @@ A few choices worth knowing about, because the obvious alternatives are wrong:
 | | Status |
 |---|---|
 | Multiple isolated accounts | ✅ Verified — one signed in while another shows a fresh QR |
+| Multiple services (Discord, Slack, Messenger, …) | ✅ Verified each loads its real sign-in page |
+| Custom URLs | ✅ Pinned to that domain and its subdomains |
 | Session persists across restart | ✅ Verified |
 | Desktop notifications | ✅ Works (native, via libnotify) |
 | Notification click → right account | ✅ Verified per-account, not just focused window |

@@ -13,6 +13,7 @@ const OUT = join(HERE, '.build')
 
 const ENTRIES = [
   'src/main/alerts.ts',
+  'src/shared/services.ts',
   'src/main/autostart.ts',
   'src/main/downloads.ts',
   'src/main/unread.ts',

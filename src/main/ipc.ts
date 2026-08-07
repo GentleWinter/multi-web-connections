@@ -23,6 +23,12 @@ import {
   setAlerts,
 } from './config-store'
 import { accountSessionDir } from './paths'
+import {
+  CUSTOM_SERVICE_ID,
+  hostsForCustomUrl,
+  serviceById,
+  SERVICES,
+} from '../shared/services'
 import { setLauncherBadge } from './badge'
 import { iconPath } from './icons'
 import { allUnread, forgetUnread, sanitize, setUnread, totalDirect } from './unread'
@@ -86,13 +92,44 @@ export function registerIpc(
     return shellState()
   })
 
-  ipcMain.handle('shell:addAccount', (event, name: unknown) => {
+  /**
+   * @param spec { serviceId, name?, url? } — url is only read for the custom
+   *   service, and is rejected unless it is http(s).
+   */
+  ipcMain.handle('shell:addAccount', (event, spec: unknown) => {
     if (!fromShell(event)) return null
-    const account = addAccount(typeof name === 'string' ? name : '')
+    const req = (spec ?? {}) as { serviceId?: string; name?: string; url?: string }
+    const service = serviceById(String(req.serviceId ?? '')) ?? SERVICES[0]
+
+    let url = service.url
+    let hosts = service.hosts
+    if (service.id === CUSTOM_SERVICE_ID) {
+      const raw = String(req.url ?? '').trim()
+      let parsed: URL
+      try {
+        parsed = new URL(raw)
+      } catch {
+        return null
+      }
+      if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return null
+      url = parsed.toString()
+      hosts = hostsForCustomUrl(url)
+      if (hosts.length === 0) return null
+    }
+
+    const account = addAccount({
+      name: typeof req.name === 'string' && req.name.trim() ? req.name : service.name,
+      serviceId: service.id,
+      url,
+      hosts,
+      unread: service.unread,
+      color: service.id === CUSTOM_SERVICE_ID ? undefined : service.color,
+    })
     views.ensure(account)
     setActiveAccount(account.id)
     views.setActive(account.id)
     broadcast()
+    console.log(`[account] added ${service.name} (${account.id.slice(0, 8)}) -> ${url}`)
     return shellState()
   })
 
@@ -337,12 +374,11 @@ export function registerIpc(
     console.log(`[notify] click -> activated ${accountId.slice(0, 8)}`)
   })
 
+  // The menu-bar entry opens the same picker as the + button rather than
+  // silently creating one service's account.
   const newAccount = (): void => {
-    const account = addAccount(`Account ${getConfig().accounts.length + 1}`)
-    views.ensure(account)
-    setActiveAccount(account.id)
-    views.setActive(account.id)
-    broadcast()
+    views.setActive(null)
+    if (!win.isDestroyed()) win.webContents.send('shell:openServicePicker')
   }
 
   const reloadActive = (): void => {
