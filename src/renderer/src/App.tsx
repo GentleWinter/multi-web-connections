@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { CUSTOM_SERVICE_ID, SERVICES } from '../../shared/services'
+import { CUSTOM_SERVICE_ID, SERVICES, normalizeCustomUrl } from '../../shared/services'
 import {
   DEFAULT_ALERTS,
   EMPTY_UNREAD,
@@ -75,7 +75,11 @@ function ServicePicker({
   const [customUrl, setCustomUrl] = useState('')
   const [showCustom, setShowCustom] = useState(false)
 
-  const customValid = /^https?:\/\/.+\..+/i.test(customUrl.trim())
+  // Shared with main, so what the picker accepts and what the handler accepts
+  // cannot drift apart.
+  const normalized = normalizeCustomUrl(customUrl)
+  const customValid = normalized !== null
+  const typedSomething = customUrl.trim().length > 0
 
   return (
     <main className="panel">
@@ -114,14 +118,24 @@ function ServicePicker({
             <input
               className="text-input"
               autoFocus
-              placeholder="https://chat.example.com"
+              placeholder="chat.example.com"
               value={customUrl}
               spellCheck={false}
               onChange={(e) => setCustomUrl(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' && customValid) onPick(CUSTOM_SERVICE_ID, customUrl.trim())
+                if (e.key === 'Enter' && normalized) onPick(CUSTOM_SERVICE_ID, normalized)
               }}
             />
+            {/* A disabled button with no explanation is the worst outcome here. */}
+            {typedSomething && !customValid && (
+              <span className="field-error">
+                That does not look like a web address. Try something like
+                <code> chat.example.com</code>.
+              </span>
+            )}
+            {customValid && normalized !== customUrl.trim() && (
+              <span className="field-hint">Will open {normalized}</span>
+            )}
           </label>
         )}
 
@@ -134,7 +148,7 @@ function ServicePicker({
               type="button"
               className="btn primary"
               disabled={!customValid}
-              onClick={() => onPick(CUSTOM_SERVICE_ID, customUrl.trim())}
+              onClick={() => normalized && onPick(CUSTOM_SERVICE_ID, normalized)}
             >
               Add
             </button>

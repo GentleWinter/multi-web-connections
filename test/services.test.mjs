@@ -50,3 +50,43 @@ test('service lookup', () => {
   assert.equal(serviceById('discord')?.name, 'Discord')
   assert.equal(serviceById('nope'), undefined)
 })
+
+test('custom URLs accept what a person actually types', async () => {
+  const { normalizeCustomUrl } = await import('./.build/shared/services.js')
+
+  // A bare domain is the natural input; rejecting it left the Add button dead
+  // with no explanation.
+  assert.equal(normalizeCustomUrl('chat.example.com'), 'https://chat.example.com/')
+  assert.equal(normalizeCustomUrl('example.com'), 'https://example.com/')
+  assert.equal(normalizeCustomUrl('  spaces.example.com  '), 'https://spaces.example.com/')
+
+  // Hosts with no dot are legitimate — a regex requiring one rejected these.
+  assert.equal(normalizeCustomUrl('localhost:3000'), 'https://localhost:3000/')
+  assert.equal(normalizeCustomUrl('http://localhost:3000'), 'http://localhost:3000/')
+  assert.equal(normalizeCustomUrl('https://intranet/chat'), 'https://intranet/chat')
+
+  // Explicit schemes are preserved, not double-prefixed.
+  assert.equal(normalizeCustomUrl('https://a.example.com/x'), 'https://a.example.com/x')
+})
+
+test('custom URLs reject what cannot be loaded', async () => {
+  const { normalizeCustomUrl } = await import('./.build/shared/services.js')
+  assert.equal(normalizeCustomUrl('ftp://x.com'), null)
+  assert.equal(normalizeCustomUrl('file:///etc/passwd'), null)
+  assert.equal(normalizeCustomUrl('javascript://x'), null)
+  assert.equal(normalizeCustomUrl(''), null)
+  assert.equal(normalizeCustomUrl('   '), null)
+  assert.equal(normalizeCustomUrl('...'), null)
+  assert.equal(normalizeCustomUrl(null), null)
+})
+
+test('a normalised custom URL yields usable navigation hosts', async () => {
+  const { normalizeCustomUrl, hostsForCustomUrl, hostMatches } = await import(
+    './.build/shared/services.js'
+  )
+  const url = normalizeCustomUrl('chat.example.com')
+  const hosts = hostsForCustomUrl(url)
+  assert.equal(hostMatches('chat.example.com', hosts), true)
+  assert.equal(hostMatches('auth.example.com', hosts), true, 'login hops must be allowed')
+  assert.equal(hostMatches('example.com.evil.net', hosts), false)
+})

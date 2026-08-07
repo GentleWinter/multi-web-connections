@@ -403,3 +403,24 @@ body {
   opacity: 0.4;
   cursor: not-allowed;
 }
+
+.field-error,
+.field-hint {
+  display: block;
+  margin-top: 7px;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.field-error {
+  color: #f59e0b;
+}
+
+.field-hint {
+  color: var(--muted);
+}
+
+.field-error code {
+  font-family: ui-monospace, "Cascadia Code", Menlo, monospace;
+  color: var(--text);
+}

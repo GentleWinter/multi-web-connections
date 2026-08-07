@@ -151,6 +151,35 @@ export function hostMatches(host: string, patterns: string[]): boolean {
 }
 
 /**
+ * Accept what a person actually types.
+ *
+ * A bare "chat.example.com" is the natural input, and rejecting it silently
+ * (with only a dead button as feedback) is a bad trade for the strictness. A
+ * scheme is added when missing, and validation goes through the URL parser
+ * rather than a regex so hosts with no dot — localhost, intranet names — work.
+ *
+ * @returns the absolute URL, or null if it cannot be one.
+ */
+export function normalizeCustomUrl(raw: string): string | null {
+  const trimmed = String(raw ?? '').trim()
+  if (!trimmed) return null
+
+  const candidate = /^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`
+  let url: URL
+  try {
+    url = new URL(candidate)
+  } catch {
+    return null
+  }
+  if (url.protocol !== 'https:' && url.protocol !== 'http:') return null
+  if (!url.hostname) return null
+  // "https://" alone parses with an empty host on some inputs; also reject a
+  // hostname that is nothing but dots.
+  if (!/[a-z0-9]/i.test(url.hostname)) return null
+  return url.toString()
+}
+
+/**
  * Navigation allowlist for a custom URL: the registrable-ish domain and its
  * subdomains, so a login that hops from example.com to auth.example.com still
  * works. Not a real public-suffix lookup — good enough for pinning, and erring

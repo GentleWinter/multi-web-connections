@@ -26,6 +26,7 @@ import { accountSessionDir } from './paths'
 import {
   CUSTOM_SERVICE_ID,
   hostsForCustomUrl,
+  normalizeCustomUrl,
   serviceById,
   SERVICES,
 } from '../shared/services'
@@ -104,15 +105,9 @@ export function registerIpc(
     let url = service.url
     let hosts = service.hosts
     if (service.id === CUSTOM_SERVICE_ID) {
-      const raw = String(req.url ?? '').trim()
-      let parsed: URL
-      try {
-        parsed = new URL(raw)
-      } catch {
-        return null
-      }
-      if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return null
-      url = parsed.toString()
+      const normalized = normalizeCustomUrl(String(req.url ?? ''))
+      if (!normalized) return null
+      url = normalized
       hosts = hostsForCustomUrl(url)
       if (hosts.length === 0) return null
     }
