@@ -272,7 +272,19 @@ export default function App(): React.JSX.Element {
     // when the account list changes.
   }, [state.accounts])
 
-  const onAdd = (): void => setPickerOpen(true)
+  // Must ask main to hide the account views first, or the picker renders behind
+  // them and the button looks dead.
+  const onAdd = (): void => {
+    void window.shell.openPanel().then((s) => {
+      apply(s)
+      setPickerOpen(true)
+    })
+  }
+
+  const closePanels = (): void => {
+    setPickerOpen(false)
+    setAlertsOpen(false)
+  }
 
   const addService = (serviceId: string, url?: string): void => {
     setPickerOpen(false)
@@ -302,7 +314,10 @@ export default function App(): React.JSX.Element {
               type="button"
               className={`tab${account.id === state.activeAccountId ? ' active' : ''}`}
               title={`${account.name}\nDouble-click to rename · Right-click for options`}
-              onClick={() => void window.shell.activateAccount(account.id).then(apply)}
+              onClick={() => {
+                closePanels()
+                void window.shell.activateAccount(account.id).then(apply)
+              }}
               onDoubleClick={() => setRenamingId(account.id)}
               onContextMenu={(e) => {
                 e.preventDefault()
@@ -338,7 +353,7 @@ export default function App(): React.JSX.Element {
           onPick={addService}
           onClose={() => {
             setPickerOpen(false)
-            void window.shell.closeAlerts().then(apply)
+            void window.shell.closePanel().then(apply)
           }}
         />
       )}
@@ -349,7 +364,7 @@ export default function App(): React.JSX.Element {
           onSave={(next) => void window.shell.setAlerts(next).then(apply)}
           onClose={() => {
             setAlertsOpen(false)
-            void window.shell.closeAlerts().then(apply)
+            void window.shell.closePanel().then(apply)
           }}
         />
       )}

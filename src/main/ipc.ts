@@ -245,7 +245,18 @@ export function registerIpc(
     return null
   })
 
-  ipcMain.handle('shell:closeAlerts', (event) => {
+  /**
+   * Full-window panels (service picker, priority alerts) live in the shell
+   * renderer, but account views paint ABOVE the DOM — so a panel is invisible
+   * until the views are hidden. Opening one has to go through main.
+   */
+  ipcMain.handle('shell:openPanel', (event) => {
+    if (!fromShell(event)) return null
+    views.setActive(null)
+    return shellState()
+  })
+
+  ipcMain.handle('shell:closePanel', (event) => {
     if (!fromShell(event)) return null
     views.setActive(getConfig().activeAccountId)
     return shellState()

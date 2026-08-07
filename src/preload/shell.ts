@@ -38,8 +38,11 @@ const api = {
     wholeWord: boolean
   }): Promise<ShellState | null> => ipcRenderer.invoke('shell:setAlerts', alerts),
 
-  /** Restores the account view that the alerts panel was covering. */
-  closeAlerts: (): Promise<ShellState | null> => ipcRenderer.invoke('shell:closeAlerts'),
+  /** Hides account views so a full-window panel is actually visible. */
+  openPanel: (): Promise<ShellState | null> => ipcRenderer.invoke('shell:openPanel'),
+
+  /** Restores the account view the panel was covering. */
+  closePanel: (): Promise<ShellState | null> => ipcRenderer.invoke('shell:closePanel'),
 
   onOpenServicePicker: (cb: () => void): (() => void) => {
     const handler = (): void => cb()
