@@ -5,6 +5,20 @@ accounts of the same service included — with native notifications and unread b
 
 Built on Electron 43. Linux-first (developed and verified on Ubuntu 26.04 / Wayland / GNOME 50).
 
+![WhatsApp](https://img.shields.io/badge/WhatsApp-25D366?style=flat-square&logo=whatsapp&logoColor=white)
+![Discord](https://img.shields.io/badge/Discord-5865F2?style=flat-square&logo=discord&logoColor=white)
+![Slack](https://img.shields.io/badge/Slack-4A154B?style=flat-square)
+![Messenger](https://img.shields.io/badge/Messenger-0084FF?style=flat-square&logo=messenger&logoColor=white)
+![Telegram](https://img.shields.io/badge/Telegram-2AABEE?style=flat-square&logo=telegram&logoColor=white)
+![Google Messages](https://img.shields.io/badge/Google_Messages-1A73E8?style=flat-square&logo=googlemessages&logoColor=white)
+![Reddit Chat](https://img.shields.io/badge/Reddit_Chat-FF4500?style=flat-square&logo=reddit&logoColor=white)
+![Microsoft Teams](https://img.shields.io/badge/Microsoft_Teams-6264A7?style=flat-square)
+![Element](https://img.shields.io/badge/Element-0DBD8B?style=flat-square&logo=element&logoColor=white)
+![Custom URL](https://img.shields.io/badge/Custom_URL-8696A0?style=flat-square)
+
+*(Slack and Microsoft Teams show without a logo — both have been withdrawn from the icon set
+this uses.)*
+
 > **Status: usable.** Everything in the [feature table](#feature-status) is verified working,
 > including voice/video calls, screen share and voice-message recording. Auto-update and tab
 > reordering are the notable gaps.
@@ -15,11 +29,14 @@ Built on Electron 43. Linux-first (developed and verified on Ubuntu 26.04 / Wayl
 
 ## Services
 
-| | Unread counts |
-|---|---|
-| WhatsApp | Exact, read from IndexedDB |
-| Discord, Slack, Messenger, Telegram, Google Messages, Reddit Chat, Microsoft Teams, Element | From the `(3)` prefix in the page title |
-| **Custom URL** | Title prefix, if the app uses one |
+Unread counts come from whichever source that service actually exposes:
+
+| Source | Services | Accuracy |
+|---|---|---|
+| IndexedDB (`model-storage`) | WhatsApp | Exact, and splits direct from muted |
+| IndexedDB (matrix-js-sdk) | Reddit Chat, Element | Exact, already post-push-rules |
+| `(3)` prefix in the page title | Discord, Slack, Messenger, Telegram, Google Messages, Teams | Whatever the app puts there |
+| Title prefix, if present | Custom URLs | Best effort |
 
 Every account is a separate session, so several accounts of the *same* service can be signed
 in at once — that was the original point and it generalises unchanged.
@@ -259,7 +276,7 @@ A few choices worth knowing about, because the obvious alternatives are wrong:
 | Desktop notifications | ✅ Works (native, via libnotify) |
 | Notification click → right account | ✅ Verified per-account, not just focused window |
 | Per-account notification prefix | ✅ Applied only when >1 account |
-| Unread badges (rail + launcher) | ✅ Verified against real non-zero counts |
+| Unread badges (tab + launcher) | ✅ Verified against real non-zero counts, live |
 | Muted vs. direct unread split | ✅ Muted shows a dot, excluded from launcher count |
 | Right-click menu (copy/paste/links/images) | ✅ Built by hand — Electron gives embedded content none |
 | Spellcheck suggestions | ✅ Built from the context-menu event + `replaceMisspelling()` |
@@ -270,9 +287,12 @@ A few choices worth knowing about, because the obvious alternatives are wrong:
 | Voice / video calls | ✅ Verified |
 | Screen share | ✅ Verified (xdg-desktop-portal picker on Wayland) |
 | Tray icon + close-to-tray | ✅ Verified registered with `org.kde.StatusNotifierWatcher` |
-| Per-tab menu (rename / reload / remove) | ✅ Native menu on right-click |
+| Per-tab menu (rename / reload / remove / notifications) | ✅ Native menu on right-click |
+| Settings page | ✅ General / Notifications / Accounts / About |
+| Notifications on/off per account | ✅ Enforced in the page, so nothing is created |
+| Backgrounded accounts report as hidden | ✅ Restored — Electron stops propagating it after first show |
+| Packaging (.deb + AppImage) | ✅ Both built and inspected; `.deb` postinst fixes the sandbox |
 | Reorder accounts | ❌ Not implemented |
-| Packaging | ✅ `--dir` build verified: runs, tray icon resolves, asar excludes sources |
 | App / tray / notification icon | ✅ Generated set + desktop entry; startup verifies the chain |
 | Start at login | ✅ XDG autostart entry, launches hidden to the tray |
 | Priority alerts (keyword → persistent notification) | ✅ Verified: urgency=2 on D-Bus, no duplicate, click opens the chat |
@@ -281,6 +301,11 @@ A few choices worth knowing about, because the obvious alternatives are wrong:
 Notification **inline reply** is not possible on this target: GNOME's notification daemon
 does not advertise the `inline-reply` capability (it does advertise `actions`, which is why
 click routing works).
+
+**Reddit Chat raises no desktop notifications**, and that is Reddit's web app, not this shell —
+verified by firing one through the same pipeline on that page and watching it arrive over
+D-Bus, with the account genuinely backgrounded. Reddit never calls the Notification API and
+holds no push subscription, so there is nothing to intercept. Its unread badge works.
 
 ---
 
