@@ -52,6 +52,16 @@ const api = {
   /** Restores the account view the panel was covering. */
   closePanel: (): Promise<ShellState | null> => ipcRenderer.invoke('shell:closePanel'),
 
+  /** A tab's favicon arrived, as a data URL. */
+  onIcon: (cb: (accountId: string, icon: string) => void): (() => void) => {
+    const handler = (_e: IpcRendererEvent, p: { accountId: string; icon: string }): void =>
+      cb(p.accountId, p.icon)
+    ipcRenderer.on('shell:icon', handler)
+    return () => {
+      ipcRenderer.removeListener('shell:icon', handler)
+    }
+  },
+
   onOpenServicePicker: (cb: () => void): (() => void) => {
     const handler = (): void => cb()
     ipcRenderer.on('shell:openServicePicker', handler)

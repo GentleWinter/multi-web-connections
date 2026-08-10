@@ -36,6 +36,7 @@ import {
 import { setLauncherBadge } from './badge'
 import { iconPath } from './icons'
 import { allUnread, forgetUnread, sanitize, setUnread, totalDirect } from './unread'
+import { cachedIcon, fetchFavicon, forgetIcon } from './favicons'
 
 /** Resolved once: the desktop entry cannot appear while we are running. */
 let desktopEntryPath: string | null | undefined
@@ -177,6 +178,7 @@ export function registerIpc(
     const removed = removeAccount(id)
     if (!removed) return shellState()
     forgetUnread(id)
+    forgetIcon(id)
 
     // Order matters. Tear the renderer down FIRST so the session has no live
     // clients, then clear, then remove the directory. Note this is still
@@ -473,7 +475,21 @@ export function registerIpc(
 
   // A view's preload only exists after dom-ready, so rules pushed before that
   // would be dropped silently.
-  views.onViewReady = (accountId) => views.pushAlerts(accountId, getAlerts())
+  views.onViewReady = (accountId) => {
+    views.pushAlerts(accountId, getAlerts())
+    // A view that reloads re-sends its icon anyway, but this covers the
+    // renderer reconnecting to an already-loaded view.
+    const icon = cachedIcon(accountId)
+    if (icon && !win.isDestroyed()) win.webContents.send('shell:icon', { accountId, icon })
+  }
+
+  // Sent on its own channel rather than inside ShellState: icons are a few KB
+  // each and would otherwise ride along on every unread tick.
+  views.onFavicon = (accountId, ses, url, hosts) => {
+    void fetchFavicon(accountId, ses, url, hosts).then((icon) => {
+      if (icon && !win.isDestroyed()) win.webContents.send('shell:icon', { accountId, icon })
+    })
+  }
 
   const openSettings = (): void => {
     views.setActive(null)

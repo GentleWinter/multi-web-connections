@@ -226,6 +226,12 @@ laid out beneath it.
 └─────────────────────────────────────────────────┘
 ```
 
+Tabs show each service's **real favicon** rather than bundled logos, which keeps custom URLs
+correct too and avoids shipping other people's trademarks. The bytes are fetched in main
+through that account's own session and inlined as a data URL — the shell renderer runs under a
+CSP that forbids remote images, and lives in a different session anyway. Until a page
+advertises one, the tab falls back to the account's colour dot.
+
 Views paint *above* the DOM, so the tab bar is a reserved region rather than an overlay —
 nothing in the renderer can draw on top of an account. `TAB_BAR_HEIGHT` in
 [`src/shared/types.ts`](src/shared/types.ts) is the single source of truth; the CSS variable
@@ -288,6 +294,7 @@ A few choices worth knowing about, because the obvious alternatives are wrong:
 | Screen share | ✅ Verified (xdg-desktop-portal picker on Wayland) |
 | Tray icon + close-to-tray | ✅ Verified registered with `org.kde.StatusNotifierWatcher` |
 | Per-tab menu (rename / reload / remove / notifications) | ✅ Native menu on right-click |
+| Service icons on tabs | ✅ Each page's real favicon, fetched via its own session |
 | Settings page | ✅ General / Notifications / Accounts / About |
 | Notifications on/off per account | ✅ Enforced in the page, so nothing is created |
 | Backgrounded accounts report as hidden | ✅ Restored — Electron stops propagating it after first show |

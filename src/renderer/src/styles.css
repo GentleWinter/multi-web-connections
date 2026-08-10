@@ -560,3 +560,20 @@ body {
   font-size: 12px;
   word-break: break-all;
 }
+
+.tab-icon {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  border-radius: 3px;
+  object-fit: contain;
+}
+
+/* Dim inactive tabs' icons so the active one still reads as selected. */
+.tab:not(.active) .tab-icon {
+  opacity: 0.72;
+}
+
+.tab:hover .tab-icon {
+  opacity: 1;
+}

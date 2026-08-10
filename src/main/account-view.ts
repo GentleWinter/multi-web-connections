@@ -1,6 +1,6 @@
 import { mkdirSync } from 'node:fs'
 import { join } from 'node:path'
-import { WebContentsView, app, session, type BrowserWindow } from 'electron'
+import { WebContentsView, app, session, type BrowserWindow, type Session } from 'electron'
 import { attachContextMenu } from './context-menu'
 import { TAB_BAR_HEIGHT, type AccountRecord } from '../shared/types'
 import { pinNavigation } from './navigation'
@@ -29,6 +29,9 @@ export class AccountViewManager {
    */
   /** Set by the IPC layer to push alert rules once a view's preload is live. */
   onViewReady?: (accountId: string) => void
+
+  /** Set by the IPC layer; fires when a page advertises a new favicon. */
+  onFavicon?: (accountId: string, session: Session, url: string, hosts: string[]) => void
 
   constructor(
     private readonly win: BrowserWindow,
@@ -144,6 +147,13 @@ export class AccountViewManager {
     view.webContents.on('did-fail-load', (_e, code, desc, url, isMainFrame) => {
       if (isMainFrame) console.error(`[account] ${label} FAILED ${code} ${desc} ${url}`)
     })
+    // Tabs show the service's real favicon. Pages advertise several sizes;
+    // the last is conventionally the largest.
+    view.webContents.on('page-favicon-updated', (_e, favicons) => {
+      const url = favicons[favicons.length - 1]
+      if (url) this.onFavicon?.(account.id, ses, url, account.hosts)
+    })
+
     view.webContents.on('render-process-gone', (_e, details) => {
       console.error(`[account] ${label} renderer gone:`, details.reason)
     })

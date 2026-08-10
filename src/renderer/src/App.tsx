@@ -368,6 +368,7 @@ export default function App(): React.JSX.Element {
   const [renamingId, setRenamingId] = useState<string | null>(null)
   const [alertsOpen, setAlertsOpen] = useState(false)
   const [pickerOpen, setPickerOpen] = useState(false)
+  const [icons, setIcons] = useState<Record<string, string>>({})
 
   const apply = (result: ShellState | null): void => {
     if (result) setState(result)
@@ -386,6 +387,9 @@ export default function App(): React.JSX.Element {
     const offRename = window.shell.onBeginRename((id) => setRenamingId(id))
     const offAlerts = window.shell.onOpenAlerts(() => setAlertsOpen(true))
     const offPicker = window.shell.onOpenServicePicker(() => setPickerOpen(true))
+    const offIcon = window.shell.onIcon((accountId, icon) =>
+      setIcons((prev) => (prev[accountId] === icon ? prev : { ...prev, [accountId]: icon })),
+    )
     const offRemove = window.shell.onConfirmRemove((id) => {
       const account = state.accounts.find((a) => a.id === id)
       if (account) confirmRemove(account)
@@ -396,6 +400,7 @@ export default function App(): React.JSX.Element {
       offRemove()
       offAlerts()
       offPicker()
+      offIcon()
     }
     // state.accounts is read inside onConfirmRemove, so the listener is rebound
     // when the account list changes.
@@ -453,7 +458,12 @@ export default function App(): React.JSX.Element {
                 void window.shell.tabMenu(account.id)
               }}
             >
-              <span className="tab-dot" style={{ background: account.color }} />
+              {icons[account.id] ? (
+                <img className="tab-icon" src={icons[account.id]} alt="" draggable={false} />
+              ) : (
+                // Until the page has loaded and advertised one.
+                <span className="tab-dot" style={{ background: account.color }} />
+              )}
               <span className="tab-name">{account.name}</span>
               <Badge unread={state.unread[account.id] ?? EMPTY_UNREAD} />
             </button>
