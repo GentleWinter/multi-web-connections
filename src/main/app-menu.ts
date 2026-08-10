@@ -4,6 +4,7 @@ import * as autostart from './autostart'
 export interface AppMenuActions {
   win: BrowserWindow
   addAccount: () => void
+  openSettings: () => void
   reloadActive: () => void
   /** Called after the setting changes so every surface can be refreshed. */
   onAutostartChanged: () => void
@@ -18,13 +19,14 @@ export interface AppMenuActions {
  * this menu in sync when the setting is changed from the tray or the ⚙ button.
  */
 export function installAppMenu(actions: AppMenuActions): void {
-  const { win, addAccount, reloadActive, onAutostartChanged } = actions
+  const { win, addAccount, openSettings, reloadActive, onAutostartChanged } = actions
 
   const template: MenuItemConstructorOptions[] = [
     {
       label: '&File',
       submenu: [
         { label: 'Add account', accelerator: 'CmdOrCtrl+N', click: addAccount },
+        { label: 'Settings…', accelerator: 'CmdOrCtrl+,', click: openSettings },
         { label: 'Reload current account', accelerator: 'CmdOrCtrl+R', click: reloadActive },
         { type: 'separator' },
         {

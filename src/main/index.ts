@@ -172,6 +172,7 @@ function onReady(): void {
     installAppMenu({
       win: mainWindow,
       addAccount: api.addAccount,
+      openSettings: api.openSettings,
       reloadActive: api.reloadActive,
       onAutostartChanged: refreshMenus,
     })

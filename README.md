@@ -137,155 +137,60 @@ The app reports the result at startup, so a missing entry is never a silent myst
 If the app does not start when launched from the desktop, see
 [Troubleshooting](#troubleshooting) — that is a different problem from a missing icon.
 
-### Start at login
+### Settings
 
-Three places, whichever is closest to hand:
+**⚙ Settings** in the tab bar, **File → Settings…** (`Ctrl+,`), or the tray. Four sections:
 
-- **⚙ Settings** in the tab bar
-- **File → Start at login** in the menu bar
-- the **tray** menu (the one that still works when the window is hidden)
+| | |
+|---|---|
+| **General** | Start at login |
+| **Notifications** | Per-account on/off, and priority alerts (keywords, whole-word matching) |
+| **Accounts** | What is configured, which service, current unread |
+| **About** | Versions, config directory, resolved desktop entry |
 
-All three are rebuilt when any of them changes — Electron menu items cannot be updated in
-place, so a stale tick is the default failure and has to be designed out.
+Adding a setting means adding a row to one of those sections. The tray, menu bar and tab
+context menus keep their shortcuts, but they are no longer the *only* route to anything.
 
-It launches with `--hidden`, so at login the app comes up in the tray rather than stealing
-focus — accounts still connect and notifications still arrive. If the tray failed to
-initialise the window is shown anyway, so the app can never start unreachable.
+#### Start at login
+
+Launches with `--hidden`, so at login the app comes up in the tray rather than stealing focus —
+accounts still connect and notifications still arrive. If the tray failed to initialise the
+window is shown anyway, so the app can never start unreachable.
 
 `app.setLoginItemSettings()` is **not** used: it is an empty function on Linux, so enabling
-autostart through it appears to succeed and silently does nothing. Instead an XDG autostart
-entry is written to `~/.config/autostart/com.sheryar.WhatsAppMulti.desktop`. Disabling
-removes the file, and entries disabled by a desktop settings editor (`Hidden=true` or
-`X-GNOME-Autostart-enabled=false`) are read back correctly rather than reported as enabled.
+autostart through it appears to succeed and silently does nothing. An XDG autostart entry is
+written to `~/.config/autostart/` instead. Entries disabled by a desktop settings editor
+(`Hidden=true` or `X-GNOME-Autostart-enabled=false`) are read back correctly rather than
+reported as enabled.
 
-### Turning notifications on or off per account
+#### Notifications, per account
 
-**Right-click a tab → Show notifications.** The setting is per account and persists.
+Turning an account off silences it completely, including priority alerts. Unread badges are
+unaffected — silencing an account is not the same as not wanting to know it has messages.
 
-It is enforced *inside the page*, not in main: for an ordinary message the site
-constructs the notification itself, so there is nothing for the main process to suppress
-after the fact — it has to not be created. The toggle is a master switch, so a disabled
-account raises no priority alerts either.
+It is enforced *inside the page*, not in main: for an ordinary message the site constructs the
+notification itself, so there is nothing to suppress after the fact — it has to not be created.
 
-Unread badges are unaffected — an account with notifications off still shows its count.
+#### Priority alerts
 
-### Priority alerts
+Messages containing one of your keywords get a notification that **stays on screen until
+dismissed**, instead of the normal one that auto-expires. Clicking it opens that chat.
 
-**⚙ Settings → Priority alerts…** Messages containing any of your keywords get a notification
-that **stays on screen until dismissed**, instead of the normal one that auto-expires after a
-few seconds. Clicking it opens that chat, same as a normal notification.
-
-Whole-word matching is on by default, so `urgent` does not fire on `insurgent`. Word
-boundaries use Unicode letter/number classes rather than `\b`, which is ASCII-only in
-JavaScript and would mis-handle non-Latin text.
+Whole-word matching is on by default, so `urgent` does not fire on `insurgent`. Word boundaries
+use Unicode letter/number classes rather than `\b`, which is ASCII-only in JavaScript and would
+mis-handle non-Latin text.
 
 The mechanism is worth knowing, because it is not simply "add an option to the notification":
 
 - `urgency` exists only on Electron's **main-process** `Notification`, not the web API. So a
-  priority alert cannot be an upgraded version of WhatsApp's own notification — WhatsApp's has
+  priority alert cannot be an upgraded version of the site's own notification — the site's has
   to be **suppressed** and ours fired instead, or you would get two per message.
 - Suppression has to happen synchronously *inside the page*, before the constructor runs, so
-  the keyword list is pushed into the main world and matched there. By the time main hears
-  about a notification it has already been shown.
+  the keyword list is pushed into the main world and matched there.
 - The shim is therefore a `Proxy` with a `construct` trap rather than a subclass: a subclass
-  cannot skip its own `super()` call. On a match it returns a stand-in object that implements
-  enough of `Notification` (`onclick`, `close()`, events) for WhatsApp's own code to keep
-  working, and main replays the real click into it so the chat still opens.
-
----
-
-## Troubleshooting
-
-### Start here: get the real error
-
-An app launched from the desktop has **no terminal**, so its crash output goes to the journal
-rather than to anywhere you are looking. Almost every "it just doesn't start" is a one-line
-`FATAL` that is already recorded:
-
-```bash
-journalctl --user -n 200 --no-pager | grep -i whatsapp
-```
-
-Lines tagged `com.sheryar.WhatsAppMulti.desktop[<pid>]` are the app's own stderr. systemd also
-logs the launch scope, which tells you whether the launch happened at all:
-
-```text
-Started app-gnome-com.sheryar.WhatsAppMulti-59917.scope - Application launched by gnome-shell.
-com.sheryar.WhatsAppMulti.desktop[59917]: FATAL: The SUID sandbox helper binary was found, but
-is not configured correctly...
-```
-
-### Why testing from a terminal can lie to you
-
-**A terminal is not the same launch environment as the desktop.** Three differences bite:
-
-| | Terminal | Desktop (`gnome-shell`) |
-|---|---|---|
-| AppArmor profile | whatever your terminal has — VS Code's permits user namespaces | `unconfined`, which on Ubuntu 24.04+ does **not** |
-| Controlling terminal | yes | no |
-| Environment | your shell profile, possibly with `ELECTRON_RUN_AS_NODE` | the session's |
-
-A fix can therefore pass from a terminal and still fail when clicked. Check what you are
-actually testing under:
-
-```bash
-cat /proc/self/attr/current                     # your shell's AppArmor profile
-cat /proc/$(pgrep -x gnome-shell)/attr/current  # the desktop session's
-unshare -Ur true && echo "userns allowed here"  # the capability that differs
-```
-
-`gio launch <file>.desktop` gets closer than running the `Exec` line by hand, but it still
-**inherits your shell's AppArmor profile**, so it is not conclusive either. The journal is.
-
-### Known failures
-
-| Symptom | Cause |
-|---|---|
-| Nothing happens from the apps menu, but it runs fine from a terminal | [SUID sandbox not configured](#suid-sandbox-not-configured) |
-| Exits instantly with no output, or `TypeError: ... reading 'isPackaged'` | [`ELECTRON_RUN_AS_NODE`](#electron_run_as_node) |
-| Generic placeholder icon in dock, switcher and notifications | no `.desktop` entry matching the app_id → `npm run desktop:install` |
-| Start-at-login stopped working | the entry stores absolute paths and the project moved → toggle it off and on |
-| Notifications stopped appearing | `[notify] SHIM NOT INSTALLED` in the log — `contextBridge.executeInMainWorld` is Experimental and may have changed |
-| Unread badge stuck | `[unread] status=db-absent` or `error` means the count is *unknown*, not zero — WhatsApp's IndexedDB schema may have moved |
-
-#### SUID sandbox not configured
-
-Ubuntu 24.04+ sets `kernel.apparmor_restrict_unprivileged_userns=1`, so an unconfined process
-cannot create the user namespace Chromium's sandbox needs. Electron falls back to the SUID
-helper and aborts if it is not root-owned.
-
-```bash
-sudo chown root:root node_modules/electron/dist/chrome-sandbox
-sudo chmod 4755 node_modules/electron/dist/chrome-sandbox
-```
-
-Re-run after any `npm install`, which replaces the binary. `npm run desktop:install` detects
-this and prints the commands.
-
-Adding `--no-sandbox` also "works" and is **not** recommended: this app renders a third-party
-site, and the flag removes its OS sandbox entirely. Installing the `.deb` is the durable
-answer — its post-install script sets the ownership and ships an AppArmor profile.
-
-#### `ELECTRON_RUN_AS_NODE`
-
-VS Code's Electron host exports `ELECTRON_RUN_AS_NODE=1` into every terminal it spawns. With
-it set, Electron runs the main script as **plain Node**: `require('electron')` returns a path
-string instead of the module, so you get `TypeError: Cannot read properties of undefined
-(reading 'isPackaged')` — or, from a packaged binary, a silent exit with no output at all.
-
-The `dev` and `start` scripts unset it, and both generated `.desktop` files put
-`env -u ELECTRON_RUN_AS_NODE` in their `Exec`. If you launch Electron by hand, do the same:
-
-```bash
-env -u ELECTRON_RUN_AS_NODE ./node_modules/.bin/electron .
-```
-
-#### A note on `.bin/electron`
-
-`node_modules/.bin/electron` is a symlink to `cli.js`, a Node script that spawns the real
-binary as a child. That works from a terminal but not from the desktop — the app starts and
-immediately dies. Both generated `.desktop` files point at
-`node_modules/electron/dist/electron` directly for this reason.
+  cannot skip its own `super()` call. On a match it returns a stand-in implementing enough of
+  `Notification` (`onclick`, `close()`, events) for the site's own code to keep working, and
+  main replays the real click into it so the chat still opens.
 
 ---
 

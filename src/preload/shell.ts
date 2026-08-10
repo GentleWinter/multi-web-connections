@@ -32,6 +32,14 @@ const api = {
 
   processIds: (): Promise<Record<string, number> | null> => ipcRenderer.invoke('shell:processIds'),
 
+  setAutostart: (enabled: boolean): Promise<ShellState | null> =>
+    ipcRenderer.invoke('shell:setAutostart', enabled),
+
+  setAccountNotifications: (id: string, enabled: boolean): Promise<ShellState | null> =>
+    ipcRenderer.invoke('shell:setAccountNotifications', id, enabled),
+
+  openSettings: (): Promise<ShellState | null> => ipcRenderer.invoke('shell:openSettings'),
+
   setAlerts: (alerts: {
     enabled: boolean
     keywords: string[]

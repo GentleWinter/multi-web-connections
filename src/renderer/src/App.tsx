@@ -159,85 +159,198 @@ function ServicePicker({
   )
 }
 
+type Section = 'general' | 'notifications' | 'accounts' | 'about'
+
+const SECTIONS: { id: Section; label: string }[] = [
+  { id: 'general', label: 'General' },
+  { id: 'notifications', label: 'Notifications' },
+  { id: 'accounts', label: 'Accounts' },
+  { id: 'about', label: 'About' },
+]
+
 /**
- * Priority-alert settings. Shown full-window: account views paint above the DOM,
- * so main hides them while this is open and restores them on close.
+ * All settings in one place. Shown full-window: account views paint above the
+ * DOM, so main hides them while this is open and restores them on close.
+ *
+ * Adding a setting means adding a row to one of these sections — the surfaces
+ * that used to carry them (gear menu, tab context menu, tray, menu bar) stay as
+ * shortcuts, not as the only route.
  */
-function AlertsPanel({
-  alerts,
-  onSave,
+function SettingsPanel({
+  state,
+  apply,
   onClose,
 }: {
-  alerts: AlertSettings
-  onSave: (next: AlertSettings) => void
+  state: ShellState
+  apply: (s: ShellState | null) => void
   onClose: () => void
 }): React.JSX.Element {
-  const [enabled, setEnabled] = useState(alerts.enabled)
-  const [wholeWord, setWholeWord] = useState(alerts.wholeWord)
-  const [text, setText] = useState(alerts.keywords.join('\n'))
+  const [section, setSection] = useState<Section>('general')
+  const [keywords, setKeywords] = useState(state.alerts.keywords.join('\n'))
 
-  const save = (): void => {
-    onSave({
-      enabled,
-      wholeWord,
-      keywords: text
-        .split('\n')
-        .map((k) => k.trim())
-        .filter(Boolean),
-    })
-    onClose()
+  const saveAlerts = (patch: Partial<AlertSettings>): void => {
+    const next: AlertSettings = {
+      enabled: state.alerts.enabled,
+      wholeWord: state.alerts.wholeWord,
+      keywords: keywords.split('\n').map((k) => k.trim()).filter(Boolean),
+      ...patch,
+    }
+    void window.shell.setAlerts(next).then(apply)
   }
 
-  const count = text.split('\n').filter((k) => k.trim()).length
-
   return (
-    <main className="panel">
-      <div className="panel-inner">
-        <h1>Priority alerts</h1>
-        <p className="panel-sub">
-          Messages containing any of these words get a notification that <strong>stays on
-          screen until you dismiss it</strong>, instead of the normal one that disappears after
-          a few seconds. Clicking it opens that chat.
-        </p>
-
-        <label className="row">
-          <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />
-          <span>Enable priority alerts</span>
-        </label>
-
-        <label className="field">
-          <span className="field-label">Keywords — one per line, case-insensitive</span>
-          <textarea
-            rows={9}
-            value={text}
-            spellCheck={false}
-            placeholder={'urgent\nasap\noutage\nproduction down'}
-            onChange={(e) => setText(e.target.value)}
-            disabled={!enabled}
-          />
-        </label>
-
-        <label className="row">
-          <input
-            type="checkbox"
-            checked={wholeWord}
-            onChange={(e) => setWholeWord(e.target.checked)}
-            disabled={!enabled}
-          />
-          <span>
-            Match whole words only <em>— “urgent” will not fire on “insurgent”</em>
-          </span>
-        </label>
-
-        <div className="panel-actions">
-          <span className="hint">{count} keyword{count === 1 ? '' : 's'}</span>
-          <button type="button" className="btn" onClick={onClose}>
-            Cancel
+    <main className="panel settings">
+      <nav className="settings-nav">
+        {SECTIONS.map((s) => (
+          <button
+            key={s.id}
+            type="button"
+            className={`settings-navitem${section === s.id ? ' active' : ''}`}
+            onClick={() => setSection(s.id)}
+          >
+            {s.label}
           </button>
-          <button type="button" className="btn primary" onClick={save}>
-            Save
-          </button>
-        </div>
+        ))}
+        <button type="button" className="btn settings-close" onClick={onClose}>
+          Done
+        </button>
+      </nav>
+
+      <div className="settings-body">
+        {section === 'general' && (
+          <section>
+            <h2>General</h2>
+            <label className="row">
+              <input
+                type="checkbox"
+                checked={state.autostart.enabled}
+                disabled={!state.autostart.supported}
+                onChange={(e) => void window.shell.setAutostart(e.target.checked).then(apply)}
+              />
+              <span>
+                Start at login
+                <em>
+                  Launches into the tray so it does not steal focus. Accounts still connect and
+                  notifications still arrive.
+                </em>
+              </span>
+            </label>
+            <p className="note">
+              Closing the window hides it to the tray rather than quitting, so accounts stay
+              connected. Use <strong>Quit</strong> in the tray menu to exit properly.
+            </p>
+          </section>
+        )}
+
+        {section === 'notifications' && (
+          <section>
+            <h2>Notifications</h2>
+
+            <h3>Per account</h3>
+            <p className="note">
+              Turning an account off silences it completely, including priority alerts. Unread
+              badges are unaffected.
+            </p>
+            {state.accounts.length === 0 && <p className="note">No accounts yet.</p>}
+            {state.accounts.map((a) => (
+              <label className="row" key={a.id}>
+                <input
+                  type="checkbox"
+                  checked={a.notifications !== false}
+                  onChange={(e) =>
+                    void window.shell.setAccountNotifications(a.id, e.target.checked).then(apply)
+                  }
+                />
+                <span>
+                  <span className="swatch" style={{ background: a.color }} />
+                  {a.name}
+                </span>
+              </label>
+            ))}
+
+            <h3>Priority alerts</h3>
+            <p className="note">
+              Messages containing one of these words get a notification that stays on screen until
+              dismissed, instead of one that disappears after a few seconds.
+            </p>
+            <label className="row">
+              <input
+                type="checkbox"
+                checked={state.alerts.enabled}
+                onChange={(e) => saveAlerts({ enabled: e.target.checked })}
+              />
+              <span>Enable priority alerts</span>
+            </label>
+            <label className="field">
+              <span className="field-label">Keywords — one per line, case-insensitive</span>
+              <textarea
+                rows={6}
+                value={keywords}
+                spellCheck={false}
+                disabled={!state.alerts.enabled}
+                placeholder={'urgent\nasap\noutage'}
+                onChange={(e) => setKeywords(e.target.value)}
+                onBlur={() => saveAlerts({})}
+              />
+            </label>
+            <label className="row">
+              <input
+                type="checkbox"
+                checked={state.alerts.wholeWord}
+                disabled={!state.alerts.enabled}
+                onChange={(e) => saveAlerts({ wholeWord: e.target.checked })}
+              />
+              <span>
+                Match whole words only
+                <em>“urgent” will not fire on “insurgent”.</em>
+              </span>
+            </label>
+          </section>
+        )}
+
+        {section === 'accounts' && (
+          <section>
+            <h2>Accounts</h2>
+            <p className="note">
+              Rename, reload or remove from the tab’s right-click menu. Each account keeps its own
+              isolated session.
+            </p>
+            {state.accounts.map((a) => {
+              const u = state.unread[a.id]
+              return (
+                <div className="acct" key={a.id}>
+                  <span className="swatch" style={{ background: a.color }} />
+                  <span className="acct-name">{a.name}</span>
+                  <span className="acct-meta">
+                    {a.serviceId}
+                    {u && u.status === 'ok' && u.direct > 0 ? ` · ${u.direct} unread` : ''}
+                    {u && u.status === 'error' ? ' · count unavailable' : ''}
+                  </span>
+                </div>
+              )
+            })}
+          </section>
+        )}
+
+        {section === 'about' && (
+          <section>
+            <h2>About</h2>
+            <dl className="about">
+              <dt>Version</dt>
+              <dd>{state.app.version}</dd>
+              <dt>Electron</dt>
+              <dd>{state.app.electron}</dd>
+              <dt>Chromium</dt>
+              <dd>{state.app.chrome}</dd>
+              <dt>Config</dt>
+              <dd className="mono">{state.app.configDir}</dd>
+              <dt>Desktop entry</dt>
+              <dd className="mono">
+                {state.app.desktopEntry ?? 'not installed — run npm run desktop:install'}
+              </dd>
+            </dl>
+          </section>
+        )}
       </div>
     </main>
   )
@@ -249,6 +362,8 @@ export default function App(): React.JSX.Element {
     activeAccountId: null,
     unread: {},
     alerts: DEFAULT_ALERTS,
+    autostart: { supported: false, enabled: false },
+    app: { version: '', electron: '', chrome: '', configDir: '', desktopEntry: null },
   })
   const [renamingId, setRenamingId] = useState<string | null>(null)
   const [alertsOpen, setAlertsOpen] = useState(false)
@@ -352,8 +467,13 @@ export default function App(): React.JSX.Element {
         <button
           type="button"
           className="tab-settings"
-          title="Settings — start at login, version, quit"
-          onClick={() => void window.shell.settingsMenu()}
+          title="Settings"
+          onClick={() =>
+            void window.shell.openSettings().then((s) => {
+              apply(s)
+              setAlertsOpen(true)
+            })
+          }
         >
           <span className="gear" aria-hidden="true">
             ⚙
@@ -373,9 +493,9 @@ export default function App(): React.JSX.Element {
       )}
 
       {alertsOpen && (
-        <AlertsPanel
-          alerts={state.alerts}
-          onSave={(next) => void window.shell.setAlerts(next).then(apply)}
+        <SettingsPanel
+          state={state}
+          apply={apply}
           onClose={() => {
             setAlertsOpen(false)
             void window.shell.closePanel().then(apply)

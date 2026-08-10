@@ -1,4 +1,6 @@
+import { existsSync } from 'node:fs'
 import { rm } from 'node:fs/promises'
+import { join } from 'node:path'
 import {
   Menu,
   Notification,
@@ -35,6 +37,23 @@ import { setLauncherBadge } from './badge'
 import { iconPath } from './icons'
 import { allUnread, forgetUnread, sanitize, setUnread, totalDirect } from './unread'
 
+/** Resolved once: the desktop entry cannot appear while we are running. */
+let desktopEntryPath: string | null | undefined
+
+function findDesktopEntry(): string | null {
+  if (desktopEntryPath !== undefined) return desktopEntryPath
+  const name = process.env['CHROME_DESKTOP']
+  if (!name || process.platform !== 'linux') {
+    desktopEntryPath = null
+    return null
+  }
+  const dataHome = process.env['XDG_DATA_HOME'] || join(app.getPath('home'), '.local', 'share')
+  const dirs = [dataHome, ...(process.env['XDG_DATA_DIRS'] || '/usr/local/share:/usr/share').split(':')]
+  desktopEntryPath =
+    dirs.filter(Boolean).map((d) => join(d, 'applications', name)).find((p) => existsSync(p)) ?? null
+  return desktopEntryPath
+}
+
 export function shellState(): ShellState {
   const c = getConfig()
   return {
@@ -42,6 +61,14 @@ export function shellState(): ShellState {
     activeAccountId: c.activeAccountId,
     unread: allUnread(c.accounts.map((a) => a.id)),
     alerts: c.alerts,
+    autostart: { supported: autostart.isSupported(), enabled: autostart.isEnabled() },
+    app: {
+      version: app.getVersion(),
+      electron: process.versions.electron,
+      chrome: process.versions.chrome,
+      configDir: app.getPath('userData'),
+      desktopEntry: findDesktopEntry(),
+    },
   }
 }
 
@@ -52,6 +79,8 @@ export interface IpcApi {
   addAccount: () => void
   /** Reload whichever account is on screen. */
   reloadActive: () => void
+  /** Open the settings page (hides the account views first). */
+  openSettings: () => void
 }
 
 export function registerIpc(
@@ -236,9 +265,9 @@ export function registerIpc(
         },
       },
       {
-        label: 'Priority alerts…',
+        label: 'Settings…',
         click: () => {
-          // Account views paint above the DOM, so the panel is invisible until
+          // Account views paint above the DOM, so the page is invisible until
           // they are hidden.
           views.setActive(null)
           win.webContents.send('shell:openAlerts')
@@ -266,6 +295,28 @@ export function registerIpc(
   ipcMain.handle('shell:closePanel', (event) => {
     if (!fromShell(event)) return null
     views.setActive(getConfig().activeAccountId)
+    return shellState()
+  })
+
+  ipcMain.handle('shell:setAutostart', (event, enabled: unknown) => {
+    if (!fromShell(event)) return null
+    autostart.setEnabled(enabled === true)
+    refreshMenus() // tray + menu bar show the same setting
+    broadcast()
+    return shellState()
+  })
+
+  ipcMain.handle('shell:setAccountNotifications', (event, id: unknown, enabled: unknown) => {
+    if (!fromShell(event) || typeof id !== 'string') return null
+    if (!setAccountNotifications(id, enabled === true)) return null
+    views.pushNotificationsEnabled(id, enabled === true)
+    broadcast()
+    return shellState()
+  })
+
+  ipcMain.handle('shell:openSettings', (event) => {
+    if (!fromShell(event)) return null
+    views.setActive(null)
     return shellState()
   })
 
@@ -424,5 +475,10 @@ export function registerIpc(
   // would be dropped silently.
   views.onViewReady = (accountId) => views.pushAlerts(accountId, getAlerts())
 
-  return { broadcast, activate, addAccount: newAccount, reloadActive }
+  const openSettings = (): void => {
+    views.setActive(null)
+    if (!win.isDestroyed()) win.webContents.send('shell:openAlerts')
+  }
+
+  return { broadcast, activate, addAccount: newAccount, reloadActive, openSettings }
 }

@@ -66,11 +66,26 @@ export const EMPTY_UNREAD: UnreadReport = {
   markedUnread: 0,
 }
 
+export interface AutostartState {
+  supported: boolean
+  enabled: boolean
+}
+
+export interface AppInfo {
+  version: string
+  electron: string
+  chrome: string
+  configDir: string
+  desktopEntry: string | null
+}
+
 export interface ShellState {
   accounts: AccountRecord[]
   activeAccountId: string | null
   unread: Record<string, UnreadReport>
   alerts: AlertSettings
+  autostart: AutostartState
+  app: AppInfo
 }
 
 export const CURRENT_SCHEMA_VERSION = 2
