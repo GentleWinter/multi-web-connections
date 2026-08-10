@@ -41,11 +41,8 @@ jobs:
           done
           echo "preloads are CJS: $(ls out/preload/)"
 
-      - name: Assert icons are in sync with the generator
-        run: |
-          npm run icons
-          if ! git diff --quiet -- build/icons; then
-            echo "::error::build/icons differs from scripts/generate-icons.mjs output — commit the regenerated icons"
-            git diff --stat -- build/icons
-            exit 1
-          fi
+      # Compares decoded PIXELS, not file bytes. Identical images compress to
+      # different byte streams under different zlib builds, so a `git diff`
+      # check here fails on any runner whose Node differs from the author's.
+      - name: Assert icons match the generator
+        run: npm run icons:check
