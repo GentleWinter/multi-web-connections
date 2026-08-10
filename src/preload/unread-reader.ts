@@ -35,11 +35,18 @@ const POLL_MS: Record<UnreadStrategy, number> = {
 
 let db: IDBDatabase | null = null
 let strategy: UnreadStrategy = 'none'
+/** Until main tells us, 'none' is "not yet known", not "nothing to report". */
+let strategyKnown = false
 let onStrategyChange: (() => void) | null = null
 
 /** Set by main once it knows which service this view is hosting. */
 export function setUnreadStrategy(next: UnreadStrategy): void {
-  if (next === strategy) return
+  const firstTime = !strategyKnown
+  strategyKnown = true
+  if (next === strategy) {
+    if (firstTime) onStrategyChange?.()
+    return
+  }
   strategy = next
   // A handle opened for the previous strategy points at the wrong database.
   if (db) {
@@ -249,14 +256,19 @@ async function sample(): Promise<UnreadReport> {
   }
 }
 
-export function startUnreadPolling(report: (r: UnreadReport) => void): void {
+export function startUnreadPolling(
+  report: (r: UnreadReport & { strategy: UnreadStrategy }) => void,
+): void {
   let last = ''
   const tick = async (): Promise<void> => {
+    // Reporting before the strategy is known would publish a zero that is
+    // really "don't know yet", and the badge would blink on every navigation.
+    if (!strategyKnown) return
     const result = await sample()
-    const key = `${result.status}:${result.direct}:${result.muted}:${result.markedUnread}`
+    const key = `${strategy}:${result.status}:${result.direct}:${result.muted}:${result.markedUnread}`
     if (key !== last) {
       last = key
-      report(result)
+      report({ ...result, strategy })
     }
   }
 

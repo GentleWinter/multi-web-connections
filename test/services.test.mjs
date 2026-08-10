@@ -99,3 +99,18 @@ test('a normalised custom URL yields usable navigation hosts', async () => {
   assert.equal(hostMatches('auth.example.com', hosts), true, 'login hops must be allowed')
   assert.equal(hostMatches('example.com.evil.net', hosts), false)
 })
+
+test('the strategy guard accepts every declared strategy', async () => {
+  const { UNREAD_STRATEGIES, isUnreadStrategy, SERVICES } = await import('./.build/shared/services.js')
+  // Regression: 'matrix-idb' was added to the type and the reader but not to
+  // the preload's runtime check, so the push was dropped and unread silently
+  // stayed at zero.
+  for (const s of UNREAD_STRATEGIES) {
+    assert.equal(isUnreadStrategy(s), true, `${s} rejected by the guard`)
+  }
+  for (const svc of SERVICES) {
+    assert.equal(isUnreadStrategy(svc.unread), true, `${svc.name} uses an unguarded strategy`)
+  }
+  assert.equal(isUnreadStrategy('nonsense'), false)
+  assert.equal(isUnreadStrategy(undefined), false)
+})

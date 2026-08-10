@@ -7,18 +7,28 @@
  * which hosts a view may navigate to, and how to read an unread count.
  */
 
-export type UnreadStrategy =
+/**
+ * Single source of truth for the strategies. The type is DERIVED from this list
+ * so a new strategy cannot be added to one and missed in the other — which is
+ * exactly how 'matrix-idb' ended up rejected by the preload's runtime check
+ * while typechecking cleanly everywhere.
+ */
+export const UNREAD_STRATEGIES = [
   /** WhatsApp's IndexedDB (model-storage / chat). Exact, survives UI rewrites. */
-  | 'whatsapp-idb'
-  /** Leading "(3)" in document.title — the near-universal web-chat convention. */
-  | 'title-count'
-  /**
-   * matrix-js-sdk's IndexedDB sync store. Exact, and shared by every Matrix
-   * client — Reddit Chat and Element both run on it.
-   */
-  | 'matrix-idb'
+  'whatsapp-idb',
+  /** matrix-js-sdk's IndexedDB sync store — Reddit Chat and Element both use it. */
+  'matrix-idb',
+  /** Leading "(3)" in document.title — the common web-chat convention. */
+  'title-count',
   /** No unread reporting. */
-  | 'none'
+  'none',
+] as const
+
+export type UnreadStrategy = (typeof UNREAD_STRATEGIES)[number]
+
+export function isUnreadStrategy(value: unknown): value is UnreadStrategy {
+  return typeof value === 'string' && (UNREAD_STRATEGIES as readonly string[]).includes(value)
+}
 
 export interface ServiceDefinition {
   id: string

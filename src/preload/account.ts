@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { setUnreadStrategy, startUnreadPolling } from './unread-reader'
+import { isUnreadStrategy } from '../shared/services'
 
 /**
  * Injected into web.whatsapp.com. Runs next to third-party code, so the exposed
@@ -283,11 +284,23 @@ if (isTopFrame) {
   })
 
   ipcRenderer.on('wa:set-unread-strategy', (_event, next: unknown) => {
-    const value = String(next)
-    if (value === 'whatsapp-idb' || value === 'title-count' || value === 'none') {
-      setUnreadStrategy(value)
-    }
+    // Guard derived from UNREAD_STRATEGIES, so adding a strategy cannot leave
+    // this check behind and silently drop the push.
+    if (isUnreadStrategy(next)) setUnreadStrategy(next)
+    else console.warn('[unread] ignoring unknown strategy', next)
   })
+
+  // Ask for the strategy immediately rather than waiting for main's dom-ready
+  // push. The preload re-runs on every navigation, and the gap between "reset
+  // to none" and "push arrives" was long enough to report a spurious zero.
+  void ipcRenderer
+    .invoke('wa:get-unread-strategy')
+    .then((s) => {
+      if (isUnreadStrategy(s)) setUnreadStrategy(s)
+    })
+    .catch(() => {
+      /* the dom-ready push is the fallback */
+    })
 
   // Read from IndexedDB in this (isolated) world and report upward. The page is
   // never involved, so a WhatsApp UI rewrite cannot break it — only a storage

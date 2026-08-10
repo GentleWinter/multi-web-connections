@@ -294,6 +294,12 @@ export function registerIpc(
     }
   })
 
+  ipcMain.handle('wa:get-unread-strategy', (event) => {
+    const accountId = views.accountIdForWebContentsId(event.sender.id)
+    if (!accountId) return 'none'
+    return getConfig().accounts.find((a) => a.id === accountId)?.unread ?? 'none'
+  })
+
   ipcMain.on('wa:unread', (event, payload: unknown) => {
     const accountId = views.accountIdForWebContentsId(event.sender.id)
     if (!accountId) return
@@ -304,8 +310,9 @@ export function registerIpc(
     broadcast()
 
     const total = totalDirect(getConfig().accounts.map((a) => a.id))
+    const via = String((payload as { strategy?: string } | null)?.strategy ?? '?')
     console.log(
-      `[unread] ${accountId.slice(0, 8)} status=${report.status} ` +
+      `[unread] ${accountId.slice(0, 8)} via=${via} status=${report.status} ` +
         `direct=${report.direct} muted=${report.muted} marked=${report.markedUnread} ` +
         `| launcher total=${total}`,
     )

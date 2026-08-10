@@ -10,7 +10,12 @@ import {
   type AppConfig,
 } from '../shared/types'
 import { sanitizeAlerts } from './alerts'
-import { SERVICES, serviceById, type ServiceDefinition } from '../shared/services'
+import {
+  CUSTOM_SERVICE_ID,
+  SERVICES,
+  serviceById,
+  type ServiceDefinition,
+} from '../shared/services'
 import { configPath } from './paths'
 
 /**
@@ -67,26 +72,53 @@ function isAccount(a: unknown): a is AccountRecord {
 }
 
 /**
- * Fill in the service fields added when the app stopped being WhatsApp-only.
- * Configs written before that have logged-in sessions on disk, so they must
- * keep working untouched — an account with no serviceId is a WhatsApp account.
+ * Reconcile a stored account against the service catalog.
+ *
+ * For a KNOWN service the catalog is authoritative for url/hosts/unread —
+ * those describe the service, not the account, and copying them at creation
+ * time meant a fix to a service definition never reached accounts already
+ * added. That is exactly how Reddit kept reading its unread count from the page
+ * title after the catalog had moved it to Matrix.
+ *
+ * Custom accounts are the exception: their URL is the user's, so only the
+ * fields they did not supply are filled in.
+ *
+ * Accounts written before services existed have no serviceId at all, and are
+ * WhatsApp.
  */
 function normalizeAccount(a: AccountRecord): AccountRecord {
-  if (!a.serviceId || !a.url || !Array.isArray(a.hosts) || !a.unread) migrated = true
   const whatsapp = SERVICES[0]
-  const service = (a.serviceId && serviceById(a.serviceId)) || whatsapp
-  const isCustom = a.serviceId === 'custom'
-  return {
-    ...a,
-    serviceId: a.serviceId || whatsapp.id,
-    url: typeof a.url === 'string' && a.url ? a.url : service.url,
-    hosts:
-      Array.isArray(a.hosts) && a.hosts.length > 0
-        ? a.hosts.filter((h) => typeof h === 'string')
-        : service.hosts,
-    unread: a.unread || (isCustom ? 'title-count' : service.unread),
+
+  if (a.serviceId === CUSTOM_SERVICE_ID) {
+    const next: AccountRecord = {
+      ...a,
+      url: typeof a.url === 'string' ? a.url : '',
+      hosts: Array.isArray(a.hosts) ? a.hosts.filter((h) => typeof h === 'string') : [],
+      unread: a.unread || 'title-count',
+    }
+    if (next.url !== a.url || next.unread !== a.unread) migrated = true
+    return next
   }
+
+  const service = (a.serviceId && serviceById(a.serviceId)) || whatsapp
+  const next: AccountRecord = {
+    ...a,
+    serviceId: service.id,
+    url: service.url,
+    hosts: service.hosts,
+    unread: service.unread,
+  }
+  if (
+    next.serviceId !== a.serviceId ||
+    next.url !== a.url ||
+    next.unread !== a.unread ||
+    JSON.stringify(next.hosts) !== JSON.stringify(a.hosts)
+  ) {
+    migrated = true
+  }
+  return next
 }
+
 
 export function loadConfig(): AppConfig {
   let raw: string
