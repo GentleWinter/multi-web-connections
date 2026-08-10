@@ -19,6 +19,7 @@ import {
   removeAccount,
   renameAccount,
   setActiveAccount,
+  setAccountNotifications,
   getAlerts,
   setAlerts,
 } from './config-store'
@@ -197,6 +198,17 @@ export function registerIpc(
 
     Menu.buildFromTemplate([
       { label: `Rename “${account.name}”…`, click: () => win.webContents.send('shell:beginRename', id) },
+      {
+        label: 'Show notifications',
+        type: 'checkbox',
+        checked: account.notifications !== false,
+        click: (item) => {
+          setAccountNotifications(id, item.checked)
+          views.pushNotificationsEnabled(id, item.checked)
+          broadcast()
+          console.log(`[notify] ${id.slice(0, 8)} notifications ${item.checked ? 'on' : 'off'}`)
+        },
+      },
       { label: 'Reload', click: () => views.reload(id) },
       { type: 'separator' },
       { label: 'Remove account…', click: () => win.webContents.send('shell:confirmRemove', id) },

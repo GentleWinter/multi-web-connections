@@ -83,6 +83,17 @@ export class AccountViewManager {
     for (const id of this.views.keys()) this.pushAlerts(id, alerts)
   }
 
+  /**
+   * Per-account notification toggle. Enforced inside the page: for ordinary
+   * messages the SITE constructs the notification, so main cannot suppress one
+   * after the fact — it has to not be created.
+   */
+  pushNotificationsEnabled(accountId: string, enabled: boolean): void {
+    const view = this.views.get(accountId)
+    if (!view || view.webContents.isDestroyed()) return
+    view.webContents.send('wa:set-notifications', enabled)
+  }
+
   /** Replay a click on the notification main fired for this account. */
   sendPriorityClick(accountId: string, alertId: number): void {
     const view = this.views.get(accountId)
@@ -148,6 +159,7 @@ export class AccountViewManager {
       // How to read an unread count is the one genuinely per-service thing.
       view.webContents.send('wa:set-unread-strategy', account.unread)
       view.webContents.send('wa:set-visible', this.activeId === account.id)
+      view.webContents.send('wa:set-notifications', account.notifications !== false)
       this.onViewReady?.(account.id)
     })
 

@@ -158,6 +158,17 @@ entry is written to `~/.config/autostart/com.sheryar.WhatsAppMulti.desktop`. Dis
 removes the file, and entries disabled by a desktop settings editor (`Hidden=true` or
 `X-GNOME-Autostart-enabled=false`) are read back correctly rather than reported as enabled.
 
+### Turning notifications on or off per account
+
+**Right-click a tab → Show notifications.** The setting is per account and persists.
+
+It is enforced *inside the page*, not in main: for an ordinary message the site
+constructs the notification itself, so there is nothing for the main process to suppress
+after the fact — it has to not be created. The toggle is a master switch, so a disabled
+account raises no priority alerts either.
+
+Unread badges are unaffected — an account with notifications off still shows its count.
+
 ### Priority alerts
 
 **⚙ Settings → Priority alerts…** Messages containing any of your keywords get a notification

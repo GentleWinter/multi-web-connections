@@ -12,6 +12,8 @@ export interface AccountRecord {
   /** Navigation allowlist; see hostMatches() in shared/services.ts. */
   hosts: string[]
   unread: UnreadStrategy
+  /** Per-account notification toggle. Absent in older configs, meaning on. */
+  notifications: boolean
 }
 
 export interface AppConfig {

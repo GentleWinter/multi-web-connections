@@ -70,6 +70,7 @@ if (isTopFrame) {
         if ((Native as unknown as Record<string, unknown>).__waWrapped) return 'already-wrapped'
 
         w.__waAlerts = { enabled: false, keywords: [] as string[], wholeWord: true }
+        if (w.__waNotificationsEnabled === undefined) w.__waNotificationsEnabled = true
         const pending = new Map<number, EventTarget>()
         w.__waPending = pending
         let seq = 0
@@ -147,6 +148,10 @@ if (isTopFrame) {
             const title = String(args[0] == null ? '' : args[0])
             const options = (args[1] || {}) as { body?: string; tag?: string }
             const body = String(options.body || '')
+
+            // Master switch: off means nothing is shown for this account, not
+            // even a priority alert.
+            if (w.__waNotificationsEnabled === false) return makeStub(title, options)
 
             const hit = matchKeyword(`${title} ${body}`)
             if (hit) {
@@ -316,6 +321,19 @@ if (isTopFrame) {
 
   // Keyword matching has to happen synchronously inside the page to suppress
   // WhatsApp's own notification, so the rules are pushed into the main world.
+  ipcRenderer.on('wa:set-notifications', (_event, enabled: unknown) => {
+    try {
+      contextBridge.executeInMainWorld({
+        func: (on: boolean) => {
+          ;(window as unknown as Record<string, unknown>).__waNotificationsEnabled = on
+        },
+        args: [enabled !== false],
+      })
+    } catch {
+      /* ignore */
+    }
+  })
+
   ipcRenderer.on('wa:set-alerts', (_event, alerts: unknown) => {
     const a = (alerts ?? {}) as { enabled?: boolean; keywords?: string[]; wholeWord?: boolean }
     try {

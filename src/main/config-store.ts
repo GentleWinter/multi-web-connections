@@ -89,9 +89,13 @@ function isAccount(a: unknown): a is AccountRecord {
 function normalizeAccount(a: AccountRecord): AccountRecord {
   const whatsapp = SERVICES[0]
 
+  const notifications = typeof a.notifications === 'boolean' ? a.notifications : true
+  if (typeof a.notifications !== 'boolean') migrated = true
+
   if (a.serviceId === CUSTOM_SERVICE_ID) {
     const next: AccountRecord = {
       ...a,
+      notifications,
       url: typeof a.url === 'string' ? a.url : '',
       hosts: Array.isArray(a.hosts) ? a.hosts.filter((h) => typeof h === 'string') : [],
       unread: a.unread || 'title-count',
@@ -103,6 +107,7 @@ function normalizeAccount(a: AccountRecord): AccountRecord {
   const service = (a.serviceId && serviceById(a.serviceId)) || whatsapp
   const next: AccountRecord = {
     ...a,
+    notifications,
     serviceId: service.id,
     url: service.url,
     hosts: service.hosts,
@@ -204,6 +209,7 @@ export function addAccount(spec: NewAccountSpec): AccountRecord {
     url: spec.url,
     hosts: spec.hosts,
     unread: spec.unread,
+    notifications: true,
   }
   config.accounts.push(account)
   if (!config.activeAccountId) config.activeAccountId = account.id
@@ -220,6 +226,14 @@ export function removeAccount(id: string): AccountRecord | null {
   }
   saveConfig()
   return removed
+}
+
+export function setAccountNotifications(id: string, enabled: boolean): boolean {
+  const account = config.accounts.find((a) => a.id === id)
+  if (!account) return false
+  account.notifications = enabled
+  saveConfig()
+  return true
 }
 
 export function renameAccount(id: string, name: string): boolean {
