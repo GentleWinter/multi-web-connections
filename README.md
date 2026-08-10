@@ -7,17 +7,18 @@ Built on Electron 43. Linux-first (developed and verified on Ubuntu 26.04 / Wayl
 
 ![WhatsApp](https://img.shields.io/badge/WhatsApp-25D366?style=flat-square&logo=whatsapp&logoColor=white)
 ![Discord](https://img.shields.io/badge/Discord-5865F2?style=flat-square&logo=discord&logoColor=white)
-![Slack](https://img.shields.io/badge/Slack-4A154B?style=flat-square)
+![Slack](https://img.shields.io/badge/Slack-4A154B?style=flat-square&logo=data%3Aimage%2Fpng%3Bbase64%2CiVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8%2F9hAAABtElEQVR42o2SwSuDYRzHX%2B0gCicp8r5zcJLn1TZGi6bJTXFS71ayo5SbNnknzCLsD3CQo4uDvXlni1zM0g7IgYvaRCRveSkn9vq%2BejfvXlvbU5%2Fe96nf9%2FP8fk8PRRlWT%2BKtH9yBk77URy05XGgkIp8EN0QM2KhyC0EBKBqzCIaAosKK%2FHZ5wZk8pRMEEQznBCTK71GVLPuZ3AHRADCXFeAUB9i1J97EHNgfAL%2Fz9rOqmACjeLHfwd6qCh50LRdgT8iTRgEbDXTm9yJ%2FqQouSgi%2BMcowG%2BU9KMxqAT8kQzrBMS7tvQnFK2BDxzrCo2q7jqN1ikQDHNqe6TlZMUHQjuAGvkuW%2BGI9lWY8DRmam0%2FTXCjNcC0vbV4T%2FqczjNuVuydJYEdeIyRUgMD65JithkJxCii%2FMJw1TbvXtP0XxE6ExxHIAqUIMVXwlBPgVDO%2BybyQ5pZx0lyJsMo1RnAPonA%2Fw3ATarsGQVAWLNVShGyi%2BLQAgQiSQPr%2BvQujACO0gm5J6KIreoVGAU4La%2B1mpQg7Vokg%2Fnepbh%2BCq7qZtyoRuMAzOH9kPHWYtRnBK3CPmXuN9T9KPaMyEMYlhwAAAABJRU5ErkJggg%3D%3D)
 ![Messenger](https://img.shields.io/badge/Messenger-0084FF?style=flat-square&logo=messenger&logoColor=white)
 ![Telegram](https://img.shields.io/badge/Telegram-2AABEE?style=flat-square&logo=telegram&logoColor=white)
 ![Google Messages](https://img.shields.io/badge/Google_Messages-1A73E8?style=flat-square&logo=googlemessages&logoColor=white)
 ![Reddit Chat](https://img.shields.io/badge/Reddit_Chat-FF4500?style=flat-square&logo=reddit&logoColor=white)
-![Microsoft Teams](https://img.shields.io/badge/Microsoft_Teams-6264A7?style=flat-square)
+![Microsoft Teams](https://img.shields.io/badge/Microsoft_Teams-6264A7?style=flat-square&logo=data%3Aimage%2Fpng%3Bbase64%2CiVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8%2F9hAAADNElEQVR42pWSXUybZRiGOdR4ZNyRnumBiXFL3CDidIzAOsfP2CiFMn5aCrbQ0o2yNiu0g%2B8DZWVAV1KGtdO5OKmLLhu66KaLGxkmxhgGgU1NwLA5Bk5p5a%2FpH%2Bt3%2BY2pcdk88Enek%2FfNdeV9nvtJSflX9Q8mH%2FOflQbeH5BiAb809Yn37usp%2F6e8g8m33v4U3jkJx%2FvhlDe5csodf%2BreW5cv%2FprbHXMcaY9s%2FU%2BB5%2BPExd6AhMcH3h7wd69yzBV5td0XVbv8q1JnTwK3GJf6WiOqRwpE99Kh1o4wLS1R2g5GeNOxtNLdsvCkcDRyXuhN4BTiiE0xXE3hC48U7LPcfryu%2BtYHBs2tqFE3c6Oxbnb7vXuLM%2BQzW5ckk2mZBtMiNmPQ%2FxDc%2FhWpbV%2FgFAcRXB8heE4g%2BN6l9rifJ7TaX9aVFk5fUu%2BaTlSobl7UV8ysewBuO89O%2BSTbzoF4BlwBOHIC%2Bo%2BBz5sczdo4JBRtuy4YSn4Vmg0rjk5rMu0fuNl1N91%2BNHHd1hfB0iN%2FsXMR%2B%2BFlut6T6PVDn5yGcvsIsgBZgMMQptcuJU92kLcm2CvG5muaFikzz6LUTlJQPEGhcpz9B4N0ymkc7gNV7hjK7GvoS%2BZo1q%2FQY0via%2BHcmkBjC1Jtn2NkPMxv83G6PVNkZFymqv4mggwLHti9Y4zCrAlqVLMcqFmio2GVLltyaE1QZJhmt26SWuskl68Eycga4uW0z1FX%2FUSTDNu7YafiKrsyx9AVztCoXUAwyRHvjd8X5KrH2VE0SrVxnK8v3WFz%2BgU2vXiGoj3XOCDDtkOQlz1C%2FpYRKgtuYC6fx%2F7GMs7a8H1Bds63Uua2K%2BQXDNNsv8qm9WfZ8FwApTwLWwc0tkJO5vfkvPIde3Kn1gZp0YSwVi38JcgaHtic%2FqWU9tJnbHzhNBueDZD6%2FGn05hAWp8Q%2Bm0SBYgJF2jeoFD9QJbdRV3qH%2BrLfP3xgFxocCa3ZGovWN8YwNUQxmqPU1kUx6KNUqoNkpw5TsHWUsryf0SlvLxhK5tY%2FtI266j%2Be1mpCRk1FUNSUhcTK0qBYURIUy1VBsThvRszfMioUK37cX54%2F%2FczfzJ%2Fs6QgXKKPAgwAAAABJRU5ErkJggg%3D%3D)
 ![Element](https://img.shields.io/badge/Element-0DBD8B?style=flat-square&logo=element&logoColor=white)
-![Custom URL](https://img.shields.io/badge/Custom_URL-8696A0?style=flat-square)
+![Custom URL](https://img.shields.io/badge/Custom_URL-8696A0?style=flat-square&logo=data%3Aimage%2Fsvg%2Bxml%3Bbase64%2CPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSIyIj48Y2lyY2xlIGN4PSIxMiIgY3k9IjEyIiByPSI5Ii8%2BPGVsbGlwc2UgY3g9IjEyIiBjeT0iMTIiIHJ4PSI0IiByeT0iOSIvPjxwYXRoIGQ9Ik0zIDEyaDE4Ii8%2BPC9zdmc%2B)
 
-*(Slack and Microsoft Teams show without a logo — both have been withdrawn from the icon set
-this uses.)*
+<sub>Slack and Microsoft Teams are not in the icon set shields.io draws from, so those two
+badges carry their own published favicons instead — regenerate with
+`node scripts/badge-logos.mjs`.</sub>
 
 > **Status: usable.** Everything in the [feature table](#feature-status) is verified working,
 > including voice/video calls, screen share and voice-message recording. Auto-update and tab

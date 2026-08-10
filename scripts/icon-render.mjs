@@ -67,10 +67,56 @@ export function encodePng(size, rgba) {
   ])
 }
 
+function paeth(a, b, c) {
+  const p = a + b - c
+  const pa = Math.abs(p - a)
+  const pb = Math.abs(p - b)
+  const pc = Math.abs(p - c)
+  if (pa <= pb && pa <= pc) return a
+  return pb <= pc ? b : c
+}
+
 /**
- * Decode a PNG this module produced: 8-bit RGBA, filter type 0 on every
- * scanline. Deliberately not a general decoder — it only has to read our own
- * output, and it fails loudly rather than guessing if that assumption breaks.
+ * Reverse PNG's per-scanline filtering. Our own encoder only ever writes filter
+ * 0, but third-party icons use the adaptive filters, and this decoder is also
+ * used to read those.
+ */
+function unfilter(raw, width, height) {
+  const bpp = 4 // 8-bit RGBA
+  const stride = width * bpp
+  const out = Buffer.alloc(stride * height)
+
+  for (let y = 0; y < height; y++) {
+    const type = raw[y * (stride + 1)]
+    const src = y * (stride + 1) + 1
+    const dst = y * stride
+    const up = dst - stride
+
+    for (let i = 0; i < stride; i++) {
+      const x = raw[src + i]
+      const a = i >= bpp ? out[dst + i - bpp] : 0
+      const b = y > 0 ? out[up + i] : 0
+      const c = y > 0 && i >= bpp ? out[up + i - bpp] : 0
+
+      let value
+      switch (type) {
+        case 0: value = x; break
+        case 1: value = x + a; break
+        case 2: value = x + b; break
+        case 3: value = x + ((a + b) >> 1); break
+        case 4: value = x + paeth(a, b, c); break
+        default: throw new Error(`unknown PNG filter type ${type} on scanline ${y}`)
+      }
+      out[dst + i] = value & 0xff
+    }
+  }
+  return out
+}
+
+/**
+ * Decode an 8-bit RGBA PNG. Handles all five scanline filters, so it reads
+ * third-party icons as well as our own output. Other colour types and bit
+ * depths are refused rather than guessed at.
  */
 export function decodePng(buffer) {
   if (!buffer.subarray(0, 8).equals(SIGNATURE)) throw new Error('not a PNG')
@@ -99,18 +145,7 @@ export function decodePng(buffer) {
     offset += 12 + length
   }
 
-  const raw = inflateSync(Buffer.concat(idat))
-  const stride = width * 4
-  const rgba = Buffer.alloc(stride * height)
-
-  for (let y = 0; y < height; y++) {
-    const filter = raw[y * (stride + 1)]
-    if (filter !== 0) {
-      throw new Error(`scanline ${y} uses filter ${filter}; this decoder only handles 0`)
-    }
-    raw.copy(rgba, y * stride, y * (stride + 1) + 1, (y + 1) * (stride + 1))
-  }
-
+  const rgba = unfilter(inflateSync(Buffer.concat(idat)), width, height)
   return { width, height, rgba }
 }
 
@@ -169,6 +204,47 @@ export function render(size) {
         out[i + 2] = Math.round(b / a)
       }
       out[i + 3] = Math.round((a / (SS * SS)) * 255)
+    }
+  }
+  return out
+}
+
+/**
+ * Box-filter downscale. Alpha-weighted so transparent edges do not darken the
+ * result, which is what a naive average does to an icon with a soft border.
+ */
+export function downscale(rgba, srcW, srcH, dst) {
+  const out = Buffer.alloc(dst * dst * 4)
+  for (let y = 0; y < dst; y++) {
+    for (let x = 0; x < dst; x++) {
+      const x0 = Math.floor((x * srcW) / dst)
+      const x1 = Math.max(x0 + 1, Math.floor(((x + 1) * srcW) / dst))
+      const y0 = Math.floor((y * srcH) / dst)
+      const y1 = Math.max(y0 + 1, Math.floor(((y + 1) * srcH) / dst))
+
+      let r = 0
+      let g = 0
+      let b = 0
+      let alpha = 0
+      let n = 0
+      for (let sy = y0; sy < Math.min(y1, srcH); sy++) {
+        for (let sx = x0; sx < Math.min(x1, srcW); sx++) {
+          const i = (sy * srcW + sx) * 4
+          const a = rgba[i + 3] / 255
+          r += rgba[i] * a
+          g += rgba[i + 1] * a
+          b += rgba[i + 2] * a
+          alpha += a
+          n++
+        }
+      }
+      const o = (y * dst + x) * 4
+      if (alpha > 0) {
+        out[o] = Math.round(r / alpha)
+        out[o + 1] = Math.round(g / alpha)
+        out[o + 2] = Math.round(b / alpha)
+      }
+      out[o + 3] = n > 0 ? Math.round((alpha / n) * 255) : 0
     }
   }
   return out
