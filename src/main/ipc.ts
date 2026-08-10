@@ -294,6 +294,15 @@ export function registerIpc(
     }
   })
 
+  ipcMain.on('wa:visibility-status', (event, status: unknown) => {
+    const accountId = views.accountIdForWebContentsId(event.sender.id)
+    if (!accountId) return
+    const s = String(status)
+    if (s !== 'installed' && s !== 'already') {
+      console.error(`[visibility] patch failed for ${accountId.slice(0, 8)}: ${s}`)
+    }
+  })
+
   ipcMain.handle('wa:get-unread-strategy', (event) => {
     const accountId = views.accountIdForWebContentsId(event.sender.id)
     if (!accountId) return 'none'

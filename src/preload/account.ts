@@ -216,6 +216,79 @@ if (isTopFrame) {
     })
   }
 
+  /**
+   * Restore correct page-visibility for backgrounded accounts.
+   *
+   * Measured on Electron 43: once a WebContentsView has been shown,
+   * setVisible(false) — and even removeChildView — stop propagating to the
+   * page. document.visibilityState stays "visible" forever, so every
+   * backgrounded account believes it is in the foreground and any app that
+   * gates desktop notifications on document.hidden goes silent.
+   *
+   * This does not fake anything: a real background tab reports hidden. It puts
+   * back the signal the platform is failing to deliver.
+   */
+  function installVisibility(): unknown {
+    return contextBridge.executeInMainWorld({
+      func: () => {
+        const w = window as unknown as Record<string, unknown>
+        if (w.__waVisibilityPatched) return 'already'
+        w.__waVisible = true
+
+        try {
+          Object.defineProperty(document, 'visibilityState', {
+            configurable: true,
+            get: () => (w.__waVisible ? 'visible' : 'hidden'),
+          })
+          Object.defineProperty(document, 'hidden', {
+            configurable: true,
+            get: () => !w.__waVisible,
+          })
+        } catch {
+          return 'defineProperty-failed'
+        }
+
+        w.__waSetVisible = (visible: boolean): void => {
+          if (w.__waVisible === visible) return
+          w.__waVisible = visible
+          try {
+            document.dispatchEvent(new Event('visibilitychange'))
+          } catch {
+            /* ignore */
+          }
+        }
+
+        w.__waVisibilityPatched = true
+        return 'installed'
+      },
+      args: [],
+    })
+  }
+
+  let visibilityStatus: string
+  try {
+    visibilityStatus = String(installVisibility())
+  } catch (err) {
+    visibilityStatus = 'threw: ' + String(err)
+  }
+  ipcRenderer.send('wa:visibility-status', visibilityStatus)
+
+  ipcRenderer.on('wa:set-visible', (_event, visible: unknown) => {
+    try {
+      contextBridge.executeInMainWorld({
+        func: (v: boolean) => {
+          const fn = (window as unknown as Record<string, unknown>).__waSetVisible as
+            | ((b: boolean) => void)
+            | undefined
+          if (fn) fn(v)
+        },
+        args: [visible === true],
+      })
+    } catch {
+      /* ignore */
+    }
+  })
+
   let status: string
   try {
     status = String(installShim())

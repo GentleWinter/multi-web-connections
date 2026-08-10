@@ -147,6 +147,7 @@ export class AccountViewManager {
       this.pushLabel(account.id)
       // How to read an unread count is the one genuinely per-service thing.
       view.webContents.send('wa:set-unread-strategy', account.unread)
+      view.webContents.send('wa:set-visible', this.activeId === account.id)
       this.onViewReady?.(account.id)
     })
 
@@ -158,16 +159,39 @@ export class AccountViewManager {
     return view
   }
 
+  /**
+   * Show one account and background the rest.
+   *
+   * Inactive views are DETACHED from the window, not merely setVisible(false).
+   * Measured: once a view has been shown, setVisible(false) stops propagating
+   * to the page — document.visibilityState stays "visible" forever. Every
+   * service then believes it is in the foreground, and any app that gates
+   * desktop notifications on document.hidden goes permanently silent.
+   * Detaching is what actually marks the WebContents hidden.
+   */
   setActive(id: string | null): void {
     this.activeId = id
     for (const [accountId, view] of this.views) {
       const active = accountId === id
-      view.setVisible(active)
-      // Raise the active view: addChildView on an already-present child reorders
-      // it to topmost.
-      if (active) this.win.contentView.addChildView(view)
+      if (active) {
+        // addChildView on an existing child reorders it to topmost.
+        this.win.contentView.addChildView(view)
+        view.setVisible(true)
+        this.layoutOne(view)
+      } else {
+        view.setVisible(false)
+        try {
+          this.win.contentView.removeChildView(view)
+        } catch {
+          /* already detached */
+        }
+      }
+      // Electron stops propagating visibility to a view that has been shown
+      // once, so the page is told directly.
+      if (!view.webContents.isDestroyed()) {
+        view.webContents.send('wa:set-visible', active)
+      }
     }
-    this.layout()
   }
 
   /** Reload an account's page — the usual fix when a web app wedges. */
