@@ -46,6 +46,15 @@ test('every service declares hosts that admit its own start URL', () => {
   }
 })
 
+test('every service explains itself in the picker', () => {
+  // The picker is the only place a user learns what they are signing into, so
+  // an entry without a note is a gap in the UI, not a cosmetic omission.
+  for (const s of SERVICES) {
+    assert.ok(s.note && s.note.trim().length > 0, `${s.name} has no note`)
+    assert.ok(s.note.length <= 90, `${s.name} note is too long for the card: ${s.note.length}`)
+  }
+})
+
 test('service lookup', () => {
   assert.equal(serviceById('discord')?.name, 'Discord')
   assert.equal(serviceById('nope'), undefined)

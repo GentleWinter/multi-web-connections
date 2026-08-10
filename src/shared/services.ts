@@ -66,6 +66,7 @@ export const SERVICES: ServiceDefinition[] = [
     hosts: ['.discord.com', 'discord.com', '.discordapp.com', 'discordapp.com'],
     color: '#5865F2',
     unread: 'title-count',
+    note: 'Sign in with email, or scan the QR from the mobile app.',
   },
   {
     id: 'slack',
@@ -74,6 +75,7 @@ export const SERVICES: ServiceDefinition[] = [
     hosts: ['.slack.com', 'slack.com'],
     color: '#4A154B',
     unread: 'title-count',
+    note: 'Asks for your workspace URL first — add one account per workspace.',
   },
   {
     id: 'messenger',
@@ -82,6 +84,7 @@ export const SERVICES: ServiceDefinition[] = [
     hosts: ['.messenger.com', 'messenger.com', '.facebook.com', 'facebook.com'],
     color: '#0084FF',
     unread: 'title-count',
+    note: 'Signs in with your Facebook account.',
   },
   {
     id: 'telegram',
@@ -90,6 +93,7 @@ export const SERVICES: ServiceDefinition[] = [
     hosts: ['.telegram.org', 'telegram.org'],
     color: '#2AABEE',
     unread: 'title-count',
+    note: 'Log in by QR code or phone number.',
   },
   {
     id: 'google-messages',
@@ -98,6 +102,7 @@ export const SERVICES: ServiceDefinition[] = [
     hosts: ['.messages.google.com', 'messages.google.com'],
     color: '#1A73E8',
     unread: 'title-count',
+    note: 'Pairs with your Android phone, which must stay online.',
   },
   {
     id: 'reddit-chat',
@@ -106,6 +111,7 @@ export const SERVICES: ServiceDefinition[] = [
     hosts: ['.reddit.com', 'reddit.com', '.redditstatic.com'],
     color: '#FF4500',
     unread: 'title-count',
+    note: 'Redirects to reddit.com to sign in, then back to chat.',
   },
   {
     id: 'teams',
@@ -114,6 +120,7 @@ export const SERVICES: ServiceDefinition[] = [
     hosts: ['.microsoft.com', 'microsoft.com', '.office.com', '.teams.microsoft.com'],
     color: '#6264A7',
     unread: 'title-count',
+    note: 'Work or personal Microsoft account.',
   },
   {
     id: 'element',
@@ -122,6 +129,7 @@ export const SERVICES: ServiceDefinition[] = [
     hosts: ['.element.io', 'element.io', '.matrix.org'],
     color: '#0DBD8B',
     unread: 'title-count',
+    note: 'Defaults to matrix.org — for your own homeserver, use a Custom URL.',
   },
   {
     id: 'custom',
