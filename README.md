@@ -227,10 +227,17 @@ laid out beneath it.
 ```
 
 Tabs show each service's **real favicon** rather than bundled logos, which keeps custom URLs
-correct too and avoids shipping other people's trademarks. The bytes are fetched in main
-through that account's own session and inlined as a data URL — the shell renderer runs under a
-CSP that forbids remote images, and lives in a different session anyway. Until a page
-advertises one, the tab falls back to the account's colour dot.
+correct too and avoids shipping other people's trademarks — and covers Slack and Teams, which
+are not in the icon set the README badges use. The bytes are fetched in main through that
+account's own session and inlined as a data URL: the shell renderer runs under a CSP that
+forbids remote images, and lives in a different session anyway. Until a page advertises one,
+the tab falls back to the account's colour dot.
+
+Two details that are easy to get wrong. Favicons are usually served from an unrelated CDN
+(`ssl.gstatic.com`, `static.xx.fbcdn.net`, `aadcdn.msftauth.net`), so restricting the fetch to
+the account's *navigation* allowlist silently leaves those services iconless. And some sites
+inline the icon as a `data:` URL instead (Discord). Icons are downscaled to a 32px PNG where
+possible — Messenger's `.ico` is otherwise 90 KB of base64 for a 16px slot.
 
 Views paint *above* the DOM, so the tab bar is a reserved region rather than an overlay —
 nothing in the renderer can draw on top of an account. `TAB_BAR_HEIGHT` in

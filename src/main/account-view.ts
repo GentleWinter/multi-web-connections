@@ -30,8 +30,8 @@ export class AccountViewManager {
   /** Set by the IPC layer to push alert rules once a view's preload is live. */
   onViewReady?: (accountId: string) => void
 
-  /** Set by the IPC layer; fires when a page advertises a new favicon. */
-  onFavicon?: (accountId: string, session: Session, url: string, hosts: string[]) => void
+  /** Set by the IPC layer; fires when a page advertises new favicons. */
+  onFavicon?: (accountId: string, session: Session, urls: string[]) => void
 
   constructor(
     private readonly win: BrowserWindow,
@@ -147,11 +147,11 @@ export class AccountViewManager {
     view.webContents.on('did-fail-load', (_e, code, desc, url, isMainFrame) => {
       if (isMainFrame) console.error(`[account] ${label} FAILED ${code} ${desc} ${url}`)
     })
-    // Tabs show the service's real favicon. Pages advertise several sizes;
-    // the last is conventionally the largest.
+    // Tabs show the service's real favicon. All advertised sizes are passed on;
+    // picking just one loses the icon when that one 404s or is a format we
+    // will not take.
     view.webContents.on('page-favicon-updated', (_e, favicons) => {
-      const url = favicons[favicons.length - 1]
-      if (url) this.onFavicon?.(account.id, ses, url, account.hosts)
+      if (favicons.length > 0) this.onFavicon?.(account.id, ses, favicons)
     })
 
     view.webContents.on('render-process-gone', (_e, details) => {

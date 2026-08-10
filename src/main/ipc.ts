@@ -485,8 +485,8 @@ export function registerIpc(
 
   // Sent on its own channel rather than inside ShellState: icons are a few KB
   // each and would otherwise ride along on every unread tick.
-  views.onFavicon = (accountId, ses, url, hosts) => {
-    void fetchFavicon(accountId, ses, url, hosts).then((icon) => {
+  views.onFavicon = (accountId, ses, urls) => {
+    void fetchFavicon(accountId, ses, urls).then((icon) => {
       if (icon && !win.isDestroyed()) win.webContents.send('shell:icon', { accountId, icon })
     })
   }
