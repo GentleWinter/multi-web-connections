@@ -62,3 +62,37 @@ test('launcher total excludes muted', () => {
   assert.equal(unreadFor('a').status, 'db-absent')
   assert.equal(totalDirect(['a', 'b']), 3)
 })
+
+import { computeMatrixCounts } from './.build/preload/unread-reader.js'
+
+test('matrix: sums per-room notification counts', () => {
+  const rows = [{ roomsData: { join: {
+    '!a:reddit.com': { unread_notifications: { notification_count: 2, highlight_count: 0 } },
+    '!b:reddit.com': { unread_notifications: { notification_count: 3, highlight_count: 1 } },
+    '!c:reddit.com': { unread_notifications: { notification_count: 0, highlight_count: 0 } },
+  } } }]
+  assert.deepEqual(computeMatrixCounts(rows), { direct: 5, muted: 0, markedUnread: 0 })
+})
+
+test('matrix: muted rooms need no special handling', () => {
+  // matrix-js-sdk counts are already post-push-rules, so a muted room simply
+  // reports zero — unlike WhatsApp, where mute state is a separate field.
+  const rows = [{ roomsData: { join: {
+    '!muted:reddit.com': { unread_notifications: { notification_count: 0, highlight_count: 0 } },
+  } } }]
+  assert.equal(computeMatrixCounts(rows).direct, 0)
+})
+
+test('matrix: degenerate shapes never throw', () => {
+  assert.deepEqual(computeMatrixCounts([]), { direct: 0, muted: 0, markedUnread: 0 })
+  assert.deepEqual(computeMatrixCounts([{}]), { direct: 0, muted: 0, markedUnread: 0 })
+  assert.deepEqual(computeMatrixCounts([{ roomsData: {} }]), { direct: 0, muted: 0, markedUnread: 0 })
+  assert.deepEqual(
+    computeMatrixCounts([{ roomsData: { join: { '!x:y': {} } } }]),
+    { direct: 0, muted: 0, markedUnread: 0 },
+  )
+  assert.deepEqual(
+    computeMatrixCounts([{ roomsData: { join: { '!x:y': { unread_notifications: { notification_count: 'NaN' } } } } }]),
+    { direct: 0, muted: 0, markedUnread: 0 },
+  )
+})

@@ -12,6 +12,11 @@ export type UnreadStrategy =
   | 'whatsapp-idb'
   /** Leading "(3)" in document.title — the near-universal web-chat convention. */
   | 'title-count'
+  /**
+   * matrix-js-sdk's IndexedDB sync store. Exact, and shared by every Matrix
+   * client — Reddit Chat and Element both run on it.
+   */
+  | 'matrix-idb'
   /** No unread reporting. */
   | 'none'
 
@@ -107,11 +112,12 @@ export const SERVICES: ServiceDefinition[] = [
   {
     id: 'reddit-chat',
     name: 'Reddit Chat',
-    url: 'https://chat.reddit.com/',
+    // chat.reddit.com redirects here; going straight there avoids the bounce.
+    url: 'https://www.reddit.com/chat/',
     hosts: ['.reddit.com', 'reddit.com', '.redditstatic.com'],
     color: '#FF4500',
-    unread: 'title-count',
-    note: 'Redirects to reddit.com to sign in, then back to chat.',
+    unread: 'matrix-idb',
+    note: 'Reddit Chat runs on Matrix. Reddit itself does not raise desktop notifications.',
   },
   {
     id: 'teams',
@@ -128,7 +134,7 @@ export const SERVICES: ServiceDefinition[] = [
     url: 'https://app.element.io/',
     hosts: ['.element.io', 'element.io', '.matrix.org'],
     color: '#0DBD8B',
-    unread: 'title-count',
+    unread: 'matrix-idb',
     note: 'Defaults to matrix.org — for your own homeserver, use a Custom URL.',
   },
   {

@@ -16,7 +16,22 @@ import type { UnreadStrategy } from '../shared/services'
  */
 const DB_NAME = 'model-storage'
 const STORE = 'chat'
-const POLL_MS = 6000
+
+/** matrix-js-sdk names its sync store per client: reddit-chat-sync, riot-web-sync… */
+const MATRIX_DB = /^matrix-js-sdk:.*sync$/i
+const MATRIX_STORE = 'sync'
+
+/**
+ * The Matrix sync record is the whole accumulator — ~700 KB, measured at 6-11 ms
+ * to read. That is ~0.2% duty cycle at this cadence, which is worth paying:
+ * a longer interval visibly misses short-lived unreads in an active chat.
+ */
+const POLL_MS: Record<UnreadStrategy, number> = {
+  'whatsapp-idb': 6000,
+  'matrix-idb': 6000,
+  'title-count': 6000,
+  none: 30000,
+}
 
 let db: IDBDatabase | null = null
 let strategy: UnreadStrategy = 'none'
@@ -26,6 +41,15 @@ let onStrategyChange: (() => void) | null = null
 export function setUnreadStrategy(next: UnreadStrategy): void {
   if (next === strategy) return
   strategy = next
+  // A handle opened for the previous strategy points at the wrong database.
+  if (db) {
+    try {
+      db.close()
+    } catch {
+      /* ignore */
+    }
+  }
+  db = null
   onStrategyChange?.()
 }
 
@@ -66,22 +90,29 @@ interface ChatRow {
   isAutoMuted?: unknown
 }
 
-async function databaseExists(): Promise<boolean> {
+/**
+ * indexedDB.open() CREATES the database when absent, which would plant an empty
+ * store in the site's origin. Always resolve an existing name first.
+ */
+async function findDatabase(match: string | RegExp): Promise<string | null> {
   try {
-    // indexedDB.open() CREATES the database when absent, which would plant an
-    // empty model-storage in WhatsApp's origin. Always check first.
     const list = await indexedDB.databases()
-    return list.some((d) => d.name === DB_NAME)
+    for (const entry of list) {
+      const name = entry.name
+      if (!name) continue
+      if (typeof match === 'string' ? name === match : match.test(name)) return name
+    }
+    return null
   } catch {
-    return false
+    return null
   }
 }
 
-function openDatabase(): Promise<IDBDatabase | null> {
+function openDatabase(name: string): Promise<IDBDatabase | null> {
   return new Promise((resolve) => {
     let req: IDBOpenDBRequest
     try {
-      req = indexedDB.open(DB_NAME)
+      req = indexedDB.open(name)
     } catch {
       return resolve(null)
     }
@@ -109,18 +140,46 @@ function openDatabase(): Promise<IDBDatabase | null> {
   })
 }
 
-function readChats(handle: IDBDatabase): Promise<ChatRow[]> {
+function readAll<T>(handle: IDBDatabase, store: string): Promise<T[]> {
   return new Promise((resolve, reject) => {
     let tx: IDBTransaction
     try {
-      tx = handle.transaction(STORE, 'readonly')
+      tx = handle.transaction(store, 'readonly')
     } catch (err) {
       return reject(err)
     }
-    const req = tx.objectStore(STORE).getAll()
-    req.onsuccess = () => resolve((req.result as ChatRow[]) ?? [])
+    // NB: the Matrix sync store has a COMPOUND keyPath (['clobber']), so its key
+    // is an array — get('-') silently returns nothing. getAll() sidesteps that.
+    const req = tx.objectStore(store).getAll()
+    req.onsuccess = () => resolve((req.result as T[]) ?? [])
     req.onerror = () => reject(req.error)
   })
+}
+
+interface MatrixRoom {
+  unread_notifications?: { notification_count?: unknown; highlight_count?: unknown }
+}
+
+interface MatrixSyncRecord {
+  roomsData?: { join?: Record<string, MatrixRoom> }
+}
+
+/**
+ * Sum matrix-js-sdk's per-room notification counts. These are already
+ * post-push-rules, so muted rooms do not contribute — no separate mute handling
+ * is needed, unlike WhatsApp.
+ */
+export function computeMatrixCounts(rows: MatrixSyncRecord[]): Omit<UnreadReport, 'status'> {
+  let direct = 0
+  for (const row of rows) {
+    const join = row?.roomsData?.join
+    if (!join) continue
+    for (const room of Object.values(join)) {
+      const n = Number(room?.unread_notifications?.notification_count)
+      if (Number.isFinite(n) && n > 0) direct += n
+    }
+  }
+  return { direct: Math.min(direct, 99999), muted: 0, markedUnread: 0 }
 }
 
 export function computeCounts(rows: ChatRow[]): Omit<UnreadReport, 'status'> {
@@ -152,33 +211,38 @@ export function computeCounts(rows: ChatRow[]): Omit<UnreadReport, 'status'> {
   return { direct, muted, markedUnread }
 }
 
+const ABSENT: UnreadReport = { status: 'db-absent', direct: 0, muted: 0, markedUnread: 0 }
+
 async function sample(): Promise<UnreadReport> {
-  if (strategy === 'none') {
-    return { status: 'db-absent', direct: 0, muted: 0, markedUnread: 0 }
-  }
+  if (strategy === 'none') return ABSENT
   if (strategy === 'title-count') return readTitleCount()
 
-  // 'whatsapp-idb' below.
+  const wanted = strategy === 'matrix-idb' ? MATRIX_DB : DB_NAME
+  const store = strategy === 'matrix-idb' ? MATRIX_STORE : STORE
+
   if (!db) {
-    if (!(await databaseExists())) {
-      return { status: 'db-absent', direct: 0, muted: 0, markedUnread: 0 }
-    }
-    db = await openDatabase()
-    if (!db) return { status: 'db-absent', direct: 0, muted: 0, markedUnread: 0 }
+    const name = await findDatabase(wanted)
+    if (!name) return ABSENT
+    db = await openDatabase(name)
+    if (!db) return ABSENT
   }
 
-  if (!db.objectStoreNames.contains(STORE)) {
+  if (!db.objectStoreNames.contains(store)) {
     try {
       db.close()
     } catch {
       /* ignore */
     }
     db = null
-    return { status: 'db-absent', direct: 0, muted: 0, markedUnread: 0 }
+    return ABSENT
   }
 
   try {
-    return { status: 'ok', ...computeCounts(await readChats(db)) }
+    if (strategy === 'matrix-idb') {
+      const rows = await readAll<MatrixSyncRecord>(db, store)
+      return { status: 'ok', ...computeMatrixCounts(rows) }
+    }
+    return { status: 'ok', ...computeCounts(await readAll<ChatRow>(db, store)) }
   } catch {
     db = null // force re-acquire next tick
     return { status: 'error', direct: 0, muted: 0, markedUnread: 0 }
@@ -212,6 +276,10 @@ export function startUnreadPolling(report: (r: UnreadReport) => void): void {
     /* observer is an optimisation, not a requirement */
   }
 
-  void tick()
-  setInterval(() => void tick(), POLL_MS)
+  const loop = (): void => {
+    void tick().finally(() => {
+      setTimeout(loop, POLL_MS[strategy] ?? 6000)
+    })
+  }
+  loop()
 }
