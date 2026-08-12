@@ -29,6 +29,7 @@ const EMPTY: AppConfig = {
   accounts: [],
   activeAccountId: null,
   alerts: DEFAULT_ALERTS,
+  recentEmoji: [],
 }
 
 let config: AppConfig = { ...EMPTY, accounts: [] }
@@ -62,6 +63,9 @@ function migrate(raw: unknown): AppConfig {
     activeAccountId: typeof c.activeAccountId === 'string' ? c.activeAccountId : null,
     // Absent in configs written before priority alerts existed.
     alerts: sanitizeAlerts(c.alerts),
+    recentEmoji: Array.isArray(c.recentEmoji)
+      ? c.recentEmoji.filter((e) => typeof e === 'string').slice(0, 40)
+      : [],
   }
 }
 
@@ -131,7 +135,7 @@ export function loadConfig(): AppConfig {
     raw = readFileSync(configPath(), 'utf8')
   } catch {
     // Genuinely absent: first run. Safe to treat as empty.
-    config = { ...EMPTY, accounts: [], alerts: { ...DEFAULT_ALERTS } }
+    config = { ...EMPTY, accounts: [], alerts: { ...DEFAULT_ALERTS }, recentEmoji: [] }
     loadStatus = 'missing'
     return config
   }
@@ -144,7 +148,7 @@ export function loadConfig(): AppConfig {
     // The file exists but we cannot read it. Do NOT present this as "no
     // accounts" — that would invite the pruner to delete every session dir.
     console.error('[config] unreadable, refusing to treat as empty:', err)
-    config = { ...EMPTY, accounts: [], alerts: { ...DEFAULT_ALERTS } }
+    config = { ...EMPTY, accounts: [], alerts: { ...DEFAULT_ALERTS }, recentEmoji: [] }
     loadStatus = 'corrupt'
     return config
   }
@@ -242,6 +246,17 @@ export function renameAccount(id: string, name: string): boolean {
   account.name = name.trim() || account.name
   saveConfig()
   return true
+}
+
+export function getRecentEmoji(): string[] {
+  return config.recentEmoji
+}
+
+export function rememberEmoji(char: string): string[] {
+  const next = [char, ...config.recentEmoji.filter((c) => c !== char)].slice(0, 27)
+  config.recentEmoji = next
+  saveConfig()
+  return next
 }
 
 export function getAlerts(): AlertSettings {

@@ -5,6 +5,7 @@ export interface AppMenuActions {
   win: BrowserWindow
   addAccount: () => void
   openSettings: () => void
+  openEmoji: () => void
   reloadActive: () => void
   /** Called after the setting changes so every surface can be refreshed. */
   onAutostartChanged: () => void
@@ -19,7 +20,7 @@ export interface AppMenuActions {
  * this menu in sync when the setting is changed from the tray or the ⚙ button.
  */
 export function installAppMenu(actions: AppMenuActions): void {
-  const { win, addAccount, openSettings, reloadActive, onAutostartChanged } = actions
+  const { win, addAccount, openSettings, openEmoji, reloadActive, onAutostartChanged } = actions
 
   const template: MenuItemConstructorOptions[] = [
     {
@@ -28,6 +29,14 @@ export function installAppMenu(actions: AppMenuActions): void {
         { label: 'Add account', accelerator: 'CmdOrCtrl+N', click: addAccount },
         { label: 'Settings…', accelerator: 'CmdOrCtrl+,', click: openSettings },
         { label: 'Reload current account', accelerator: 'CmdOrCtrl+R', click: reloadActive },
+        { type: 'separator' },
+        {
+          label: 'Emoji picker',
+          // Display only: the binding is captured inside the account view via
+          // before-input-event, since the page has focus when it is pressed.
+          accelerator: 'CmdOrCtrl+.',
+          click: openEmoji,
+        },
         { type: 'separator' },
         {
           label: 'Start at login',

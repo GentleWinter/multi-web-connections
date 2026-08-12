@@ -23,6 +23,7 @@ export default defineConfig({
         input: {
           shell: resolve(__dirname, 'src/preload/shell.ts'),
           account: resolve(__dirname, 'src/preload/account.ts'),
+          emoji: resolve(__dirname, 'src/preload/emoji.ts'),
         },
         output: {
           format: 'cjs',
@@ -40,7 +41,10 @@ export default defineConfig({
     },
     build: {
       rollupOptions: {
-        input: { index: resolve(__dirname, 'src/renderer/index.html') },
+        input: {
+          index: resolve(__dirname, 'src/renderer/index.html'),
+          emoji: resolve(__dirname, 'src/renderer/emoji.html'),
+        },
       },
     },
   },

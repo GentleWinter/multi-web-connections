@@ -21,6 +21,8 @@ export interface AppConfig {
   accounts: AccountRecord[]
   activeAccountId: string | null
   alerts: AlertSettings
+  /** Most-recently-used emoji, newest first. */
+  recentEmoji: string[]
 }
 
 /**

@@ -1,6 +1,13 @@
 import { mkdirSync } from 'node:fs'
 import { join } from 'node:path'
-import { WebContentsView, app, session, type BrowserWindow, type Session } from 'electron'
+import {
+  WebContentsView,
+  app,
+  session,
+  type BrowserWindow,
+  type Session,
+  type WebContents,
+} from 'electron'
 import { attachContextMenu } from './context-menu'
 import { TAB_BAR_HEIGHT, type AccountRecord } from '../shared/types'
 import { pinNavigation } from './navigation'
@@ -32,6 +39,9 @@ export class AccountViewManager {
 
   /** Set by the IPC layer; fires when a page advertises new favicons. */
   onFavicon?: (accountId: string, session: Session, urls: string[]) => void
+
+  /** Set by the IPC layer; fires on the emoji-picker shortcut. */
+  onEmojiShortcut?: (contents: WebContents) => void
 
   constructor(
     private readonly win: BrowserWindow,
@@ -136,6 +146,16 @@ export class AccountViewManager {
     view.setBackgroundColor('#111b21')
 
     pinNavigation(view.webContents, account.hosts)
+
+    // Ctrl+. is handled here rather than as a global shortcut: globalShortcut is
+    // blocked under Wayland, and this keeps the binding scoped to the app.
+    view.webContents.on('before-input-event', (event, input) => {
+      if (input.type !== 'keyDown') return
+      if (input.control && !input.alt && !input.meta && input.key === '.') {
+        event.preventDefault()
+        this.onEmojiShortcut?.(view.webContents)
+      }
+    })
     // Embedded content gets no context menu from Electron, so right-click
     // copy/paste and spellcheck suggestions have to be built by hand.
     attachContextMenu(view.webContents, !app.isPackaged)
@@ -214,6 +234,12 @@ export class AccountViewManager {
         view.webContents.send('wa:set-visible', active)
       }
     }
+  }
+
+  /** The page for an account, for callers that need to act on it directly. */
+  webContentsFor(id: string): WebContents | null {
+    const view = this.views.get(id)
+    return view && !view.webContents.isDestroyed() ? view.webContents : null
   }
 
   /** Reload an account's page — the usual fix when a web app wedges. */

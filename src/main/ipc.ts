@@ -22,6 +22,8 @@ import {
   renameAccount,
   setActiveAccount,
   setAccountNotifications,
+  getRecentEmoji,
+  rememberEmoji,
   getAlerts,
   setAlerts,
 } from './config-store'
@@ -37,6 +39,7 @@ import { setLauncherBadge } from './badge'
 import { iconPath } from './icons'
 import { allUnread, forgetUnread, sanitize, setUnread, totalDirect } from './unread'
 import { cachedIcon, fetchFavicon, forgetIcon } from './favicons'
+import { hideEmojiPicker, insertEmoji, toggleEmojiPicker } from './emoji-picker'
 
 /** Resolved once: the desktop entry cannot appear while we are running. */
 let desktopEntryPath: string | null | undefined
@@ -82,6 +85,8 @@ export interface IpcApi {
   reloadActive: () => void
   /** Open the settings page (hides the account views first). */
   openSettings: () => void
+  /** Open the emoji picker for whichever account is on screen. */
+  openEmoji: () => void
 }
 
 export function registerIpc(
@@ -485,6 +490,24 @@ export function registerIpc(
 
   // Sent on its own channel rather than inside ShellState: icons are a few KB
   // each and would otherwise ride along on every unread tick.
+  views.onEmojiShortcut = (contents) => toggleEmojiPicker(win, contents)
+
+  ipcMain.handle('emoji:recents', () => getRecentEmoji())
+
+  ipcMain.handle('emoji:pick', (_event, char: unknown) => {
+    const value = String(char ?? '')
+    // Bound it: this string is inserted into a page, and the picker is the only
+    // legitimate caller.
+    if (!value || value.length > 16) return false
+    hideEmojiPicker()
+    const inserted = insertEmoji(value)
+    if (inserted) rememberEmoji(value)
+    console.log(`[emoji] ${value} -> ${inserted ? 'inserted' : 'no target to insert into'}`)
+    return inserted
+  })
+
+  ipcMain.on('emoji:close', () => hideEmojiPicker())
+
   views.onFavicon = (accountId, ses, urls) => {
     void fetchFavicon(accountId, ses, urls).then((icon) => {
       if (icon && !win.isDestroyed()) win.webContents.send('shell:icon', { accountId, icon })
@@ -496,5 +519,11 @@ export function registerIpc(
     if (!win.isDestroyed()) win.webContents.send('shell:openAlerts')
   }
 
-  return { broadcast, activate, addAccount: newAccount, reloadActive, openSettings }
+  const openEmoji = (): void => {
+    const id = getConfig().activeAccountId
+    const contents = id ? views.webContentsFor(id) : null
+    if (contents) toggleEmojiPicker(win, contents)
+  }
+
+  return { broadcast, activate, addAccount: newAccount, reloadActive, openSettings, openEmoji }
 }

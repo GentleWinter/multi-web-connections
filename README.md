@@ -155,6 +155,25 @@ The app reports the result at startup, so a missing entry is never a silent myst
 If the app does not start when launched from the desktop, see
 [Troubleshooting](#troubleshooting) — that is a different problem from a missing icon.
 
+### Emoji picker
+
+**`Ctrl+.`** in any account opens a picker at the compose area. Type to search, arrow keys to
+move, Enter to insert, Escape to close. Recently used emoji come first next time.
+
+Three things shape how it works:
+
+- The shortcut is caught with `webContents.on('before-input-event')` on each account view, not
+  `globalShortcut` — that is blocked under Wayland, and a system-wide binding for this would be
+  wrong anyway.
+- The picker is its own small frameless window rather than UI injected into the page. These are
+  third-party sites; an overlay would have to survive their DOM and re-render cycles.
+- The chosen character goes in via `webContents.insertText()`, which was verified to land in
+  WhatsApp's React-controlled composer — the case most likely to reject a synthetic insertion.
+
+The emoji list is curated (~450) rather than the full Unicode table, which is megabytes with
+names and keywords. Search ranks an exact keyword above a prefix above a substring, and breaks
+ties on keyword position, so `fire` finds 🔥 rather than ❤️‍🔥.
+
 ### Settings
 
 **⚙ Settings** in the tab bar, **File → Settings…** (`Ctrl+,`), or the tray. Four sections:
@@ -304,6 +323,7 @@ A few choices worth knowing about, because the obvious alternatives are wrong:
 | Per-tab menu (rename / reload / remove / notifications) | ✅ Native menu on right-click |
 | Service icons on tabs | ✅ Each page's real favicon, fetched via its own session |
 | Settings page | ✅ General / Notifications / Accounts / About |
+| Emoji picker (`Ctrl+.`) | ✅ Search, keyboard nav, recents; inserts via `insertText()` |
 | Notifications on/off per account | ✅ Enforced in the page, so nothing is created |
 | Backgrounded accounts report as hidden | ✅ Restored — Electron stops propagating it after first show |
 | Packaging (.deb + AppImage) | ✅ Both built and inspected; `.deb` postinst fixes the sandbox |

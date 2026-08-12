@@ -1,0 +1,102 @@
+:root {
+  --bg: #111b21;
+  --panel: #0b141a;
+  --border: #222d34;
+  --text: #e9edef;
+  --muted: #8696a0;
+  --accent: #25d366;
+}
+
+* { box-sizing: border-box; }
+
+html, body, #root { height: 100%; margin: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font: 13px/1.4 system-ui, -apple-system, "Segoe UI", Ubuntu, sans-serif;
+  overflow: hidden;
+  user-select: none;
+}
+
+.picker {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.search {
+  flex: 0 0 auto;
+  height: 34px;
+  margin: 8px 8px 6px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--panel);
+  color: var(--text);
+  font: inherit;
+  outline: none;
+  user-select: text;
+}
+
+.search:focus { border-color: var(--accent); }
+.search::placeholder { color: var(--muted); font-size: 11px; }
+
+.cats {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 2px;
+  padding: 0 8px 6px;
+  border-bottom: 1px solid var(--border);
+}
+
+.cat {
+  flex: 1;
+  height: 26px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0.55;
+}
+
+.cat:hover { background: #16222b; opacity: 1; }
+.cat.active { background: #202c33; opacity: 1; }
+
+.grid {
+  flex: 1;
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: repeat(9, 1fr);
+  gap: 1px;
+  padding: 6px;
+  scrollbar-width: thin;
+}
+
+.cell {
+  aspect-ratio: 1;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  /* Noto Color Emoji is a declared dependency; without it these render as tofu. */
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+}
+
+.cell:hover { background: #16222b; }
+.cell.cursor { background: #2a3942; outline: 1px solid var(--accent); }
+
+.empty {
+  grid-column: 1 / -1;
+  color: var(--muted);
+  text-align: center;
+  padding: 22px 10px;
+  margin: 0;
+}

@@ -5,6 +5,7 @@ import { TAB_BAR_HEIGHT } from '../shared/types'
 import { SERVICES } from '../shared/services'
 import { AccountViewManager } from './account-view'
 import { clearLauncherBadge } from './badge'
+import { destroyEmojiPicker } from './emoji-picker'
 import { iconPath } from './icons'
 import { AppTray } from './tray'
 import { installAppMenu } from './app-menu'
@@ -103,6 +104,7 @@ function bootstrap(): void {
 
   app.on('before-quit', () => {
     isQuitting = true
+    destroyEmojiPicker()
     flushConfig()
     // Otherwise a stale count sticks to the dock icon after we exit.
     clearLauncherBadge()
@@ -173,6 +175,7 @@ function onReady(): void {
       win: mainWindow,
       addAccount: api.addAccount,
       openSettings: api.openSettings,
+      openEmoji: api.openEmoji,
       reloadActive: api.reloadActive,
       onAutostartChanged: refreshMenus,
     })
