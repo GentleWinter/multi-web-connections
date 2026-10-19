@@ -10,6 +10,7 @@ import {
 } from 'electron'
 import { attachContextMenu } from './context-menu'
 import { TAB_BAR_HEIGHT, type AccountRecord } from '../shared/types'
+import { CUSTOM_SERVICE_ID, hostsForCustomUrl } from '../shared/services'
 import { pinNavigation } from './navigation'
 import { accountSessionDir } from './paths'
 import { hardenSession } from './session-harden'
@@ -122,10 +123,24 @@ export class AccountViewManager {
     const dir = accountSessionDir(account.id)
     mkdirSync(dir, { recursive: true })
 
+    // Recompute custom-host scope from the URL instead of trusting the stored
+    // hosts array. Navigation may include only the registrable domain and its
+    // subdomains; sensitive permissions stay on the exact configured host.
+    let hosts = account.hosts
+    let permissionHosts = hosts
+    if (account.serviceId === CUSTOM_SERVICE_ID) {
+      hosts = hostsForCustomUrl(account.url)
+      try {
+        permissionHosts = [new URL(account.url).hostname]
+      } catch {
+        permissionHosts = []
+      }
+    }
+
     // fromPath() rather than fromPartition('persist:…') so the directory name is
     // exactly the account id and deletion is a plain fs.rm.
     const ses = session.fromPath(dir)
-    hardenSession(ses, account.hosts)
+    hardenSession(ses, hosts, permissionHosts)
 
     const view = new WebContentsView({
       webPreferences: {
@@ -145,7 +160,7 @@ export class AccountViewManager {
     // WebContentsView defaults to opaque white, which flashes on every switch.
     view.setBackgroundColor('#111b21')
 
-    pinNavigation(view.webContents, account.hosts)
+    pinNavigation(view.webContents, hosts)
 
     // Ctrl+. is handled here rather than as a global shortcut: globalShortcut is
     // blocked under Wayland, and this keeps the binding scoped to the app.

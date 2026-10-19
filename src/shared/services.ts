@@ -1,3 +1,5 @@
+import { getDomain } from 'tldts'
+
 /**
  * Which web apps this shell knows how to host.
  *
@@ -204,18 +206,20 @@ export function normalizeCustomUrl(raw: string): string | null {
 }
 
 /**
- * Navigation allowlist for a custom URL: the registrable-ish domain and its
- * subdomains, so a login that hops from example.com to auth.example.com still
- * works. Not a real public-suffix lookup — good enough for pinning, and erring
- * wide only costs us a navigation we would otherwise send to the browser.
+ * Navigation allowlist for a custom URL: its registrable domain and subdomains,
+ * so a login that hops from example.com to auth.example.com still works. The
+ * Public Suffix List (including private suffixes) prevents shared hosting such
+ * as github.io and multi-label suffixes such as co.uk from widening the scope.
  */
 export function hostsForCustomUrl(rawUrl: string): string[] {
   try {
     const { hostname } = new URL(rawUrl)
-    const labels = hostname.split('.')
-    if (labels.length <= 2) return [hostname, `.${hostname}`]
-    const base = labels.slice(-2).join('.')
-    return [hostname, `.${base}`]
+    const domain = getDomain(hostname, {
+      allowPrivateDomains: true,
+      extractHostname: false,
+    })
+    if (!domain) return [hostname]
+    return [hostname, `.${domain}`]
   } catch {
     return []
   }
