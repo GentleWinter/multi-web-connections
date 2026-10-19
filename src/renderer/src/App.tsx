@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { CUSTOM_SERVICE_ID, SERVICES, normalizeCustomUrl } from '../../shared/services'
 import {
   DEFAULT_ALERTS,
@@ -366,6 +366,9 @@ export default function App(): React.JSX.Element {
     app: { version: '', electron: '', chrome: '', configDir: '', desktopEntry: null },
   })
   const [renamingId, setRenamingId] = useState<string | null>(null)
+  const [draggingId, setDraggingId] = useState<string | null>(null)
+  const [dropTargetId, setDropTargetId] = useState<string | null>(null)
+  const ignoreClickAfterDrag = useRef(false)
   const [alertsOpen, setAlertsOpen] = useState(false)
   const [pickerOpen, setPickerOpen] = useState(false)
   const [icons, setIcons] = useState<Record<string, string>>({})
@@ -432,6 +435,17 @@ export default function App(): React.JSX.Element {
     }
   }
 
+  const moveAccount = (sourceId: string, targetId: string): void => {
+    if (sourceId === targetId) return
+    const accounts = [...state.accounts]
+    const sourceIndex = accounts.findIndex((account) => account.id === sourceId)
+    const targetIndex = accounts.findIndex((account) => account.id === targetId)
+    if (sourceIndex < 0 || targetIndex < 0) return
+    const [moved] = accounts.splice(sourceIndex, 1)
+    accounts.splice(targetIndex, 0, moved)
+    void window.shell.reorderAccounts(accounts.map((account) => account.id)).then(apply)
+  }
+
   return (
     <div className="app">
       <nav className="tabbar">
@@ -446,16 +460,51 @@ export default function App(): React.JSX.Element {
             <button
               key={account.id}
               type="button"
-              className={`tab${account.id === state.activeAccountId ? ' active' : ''}`}
-              title={`${account.name}\nDouble-click to rename · Right-click for options`}
+              className={`tab${account.id === state.activeAccountId ? ' active' : ''}${draggingId === account.id ? ' dragging' : ''}${dropTargetId === account.id ? ' drop-target' : ''}`}
+              draggable
+              title={`${account.name}\nDrag to reorder · Double-click or press F2 to rename · Right-click for options`}
               onClick={() => {
+                if (ignoreClickAfterDrag.current) {
+                  ignoreClickAfterDrag.current = false
+                  return
+                }
                 closePanels()
                 void window.shell.activateAccount(account.id).then(apply)
               }}
               onDoubleClick={() => setRenamingId(account.id)}
+              onKeyDown={(event) => {
+                if (event.key === 'F2') {
+                  event.preventDefault()
+                  setRenamingId(account.id)
+                }
+              }}
               onContextMenu={(e) => {
                 e.preventDefault()
                 void window.shell.tabMenu(account.id)
+              }}
+              onDragStart={(event) => {
+                ignoreClickAfterDrag.current = true
+                event.dataTransfer.effectAllowed = 'move'
+                event.dataTransfer.setData('text/plain', account.id)
+                setDraggingId(account.id)
+              }}
+              onDragOver={(event) => {
+                event.preventDefault()
+                event.dataTransfer.dropEffect = 'move'
+                setDropTargetId(account.id)
+              }}
+              onDrop={(event) => {
+                event.preventDefault()
+                const sourceId = event.dataTransfer.getData('text/plain')
+                if (sourceId) moveAccount(sourceId, account.id)
+                setDropTargetId(null)
+              }}
+              onDragEnd={() => {
+                setDraggingId(null)
+                setDropTargetId(null)
+                window.setTimeout(() => {
+                  ignoreClickAfterDrag.current = false
+                }, 150)
               }}
             >
               {icons[account.id] ? (

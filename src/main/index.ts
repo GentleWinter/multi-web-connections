@@ -66,6 +66,10 @@ function createWindow(): BrowserWindow {
     },
   })
 
+  // Start with the whole available work area while keeping normal windowed
+  // controls so the user can restore and resize it when needed.
+  win.maximize()
+
   const rendererUrl = process.env['ELECTRON_RENDERER_URL']
   if (rendererUrl) {
     void win.loadURL(rendererUrl)

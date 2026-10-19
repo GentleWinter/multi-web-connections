@@ -20,6 +20,7 @@ import {
   getConfig,
   removeAccount,
   renameAccount,
+  reorderAccounts,
   setActiveAccount,
   setAccountNotifications,
   getRecentEmoji,
@@ -174,6 +175,15 @@ export function registerIpc(
   ipcMain.handle('shell:renameAccount', (event, id: unknown, name: unknown) => {
     if (!fromShell(event) || typeof id !== 'string' || typeof name !== 'string') return null
     renameAccount(id, name)
+    broadcast()
+    return shellState()
+  })
+
+  ipcMain.handle('shell:reorderAccounts', (event, ids: unknown) => {
+    if (!fromShell(event) || !Array.isArray(ids) || !ids.every((id) => typeof id === 'string')) {
+      return null
+    }
+    if (!reorderAccounts(ids)) return null
     broadcast()
     return shellState()
   })

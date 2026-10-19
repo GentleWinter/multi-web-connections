@@ -1,4 +1,4 @@
-# WhatsApp Multi
+# multi-web-connections
 
 A small desktop app that runs several fully-isolated web messengers in one window — multiple
 accounts of the same service included — with native notifications and unread badges.

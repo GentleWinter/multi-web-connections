@@ -21,6 +21,9 @@ const api = {
   renameAccount: (id: string, name: string): Promise<ShellState | null> =>
     ipcRenderer.invoke('shell:renameAccount', id, name),
 
+  reorderAccounts: (ids: string[]): Promise<ShellState | null> =>
+    ipcRenderer.invoke('shell:reorderAccounts', ids),
+
   removeAccount: (id: string): Promise<ShellState | null> =>
     ipcRenderer.invoke('shell:removeAccount', id),
 

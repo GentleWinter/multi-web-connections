@@ -248,6 +248,20 @@ export function renameAccount(id: string, name: string): boolean {
   return true
 }
 
+export function reorderAccounts(ids: string[]): boolean {
+  if (
+    ids.length !== config.accounts.length ||
+    new Set(ids).size !== ids.length ||
+    ids.some((id) => !config.accounts.some((account) => account.id === id))
+  ) {
+    return false
+  }
+  const accounts = new Map(config.accounts.map((account) => [account.id, account]))
+  config.accounts = ids.map((id) => accounts.get(id)!)
+  saveConfig()
+  return true
+}
+
 export function getRecentEmoji(): string[] {
   return config.recentEmoji
 }
